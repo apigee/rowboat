@@ -21,6 +21,8 @@
  */
 package io.apigee.rowboat;
 
+import jdk.nashorn.api.scripting.JSObject;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -58,7 +60,7 @@ public interface NodeRuntime
      * Just like "require" in the regular "module" code, it returns the export object for the named module.
      * May be used when one native module depends on another.
      */
-    Object require(String modName, Context cx);
+    //Object require(String modName);
 
     /**
      * Increment the "pin count" on this script. A script with a pin count of zero will remain running and in
@@ -96,7 +98,7 @@ public interface NodeRuntime
      * any thread and will cause the script to be run in the main script thread. This method is the <i>only</i>
      * way that code running outside the main script thread should cause work to be done in the main thread.
      */
-    void enqueueTask(ScriptTask taskm, Scriptable domain);
+    //void enqueueTask(ScriptTask task, Scriptable domain);
 
 
     /**
@@ -105,11 +107,10 @@ public interface NodeRuntime
      * tasks submitted using the "enqueueTask" method.
      *
      * @param f Function to call
-     * @param scope the scope where the function should run
      * @param thisObj the value of "this" where the function should run, or null
      * @param args arguments for the function, or null
      */
-    void enqueueCallback(Function f, Scriptable scope, Scriptable thisObj, Object[] args);
+    void enqueueCallback(JSObject f, Object thisObj, Object[] args);
 
     /**
      * Put a task on the tick queue to run the specified function in the specified scope.
@@ -117,19 +118,18 @@ public interface NodeRuntime
      * tasks submitted using the "enqueueTask" method.
      *
      * @param f Function to call
-     * @param scope the scope where the function should run
      * @param thisObj the value of "this" where the function should run, or null
      * @param domain the domain where this callback should run -- should set to the current domain
      * @param args arguments for the function, or null
      */
-    void enqueueCallback(Function f, Scriptable scope, Scriptable thisObj, Scriptable domain, Object[] args);
+    void enqueueCallback(JSObject f, Object thisObj, Object domain, Object[] args);
 
     /**
      * Get the current domain. Modules that run tasks in the main thread from other threads must first save the
      * current domain so that they can be restored. (The built-in Node "nextTick," timer, and event libraries
      * do this automatically, but new Java code must do the same.
      */
-    Scriptable getDomain();
+    //Scriptable getDomain();
 
     /**
      * Given a file path, return a File object that represents the actual file to open. If a PathTranslator

@@ -132,7 +132,7 @@ public class NodeEnvironment
      * Create an instance of the script that will process command-line arguments from argv like regular
      * Node.js. Typically, the first argument is the name of the script to run.
      */
-    public NodeScript createScript(String[] args)
+    public NodeScript createScript(String... args)
         throws NodeException
     {
         initialize();

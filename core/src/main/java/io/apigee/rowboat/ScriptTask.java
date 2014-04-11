@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright 2014 Apigee Corporation.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,56 +19,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+package io.apigee.rowboat;
 
-package io.apigee.rowboat.node010;
-
-import io.apigee.rowboat.NodeModule;
-import io.apigee.rowboat.spi.NodeImplementation;
-
-import java.util.Collection;
-import java.util.Collections;
-
-public class Node010Implementation
-    implements NodeImplementation
+/**
+ * Code that runs outside the main Node thread can send tasks to a script by sending
+ * these types of objects.
+ */
+public interface ScriptTask
 {
-    private static final String B = "/node010";
-    private static final String R = B + "/rowboat/";
-
-    @Override
-    public String getVersion()
-    {
-        return "0.10.25";
-    }
-
-    @Override
-    public String getMainScript()
-    {
-        return R + "trireme.js";
-    }
-
-    @Override
-    public String[][] getBuiltInModules()
-    {
-        return new String[0][];
-    }
-
-    @Override
-    public String[][] getInternalModules()
-    {
-        return new String[][] {
-            { "process", R + "process.js" }
-        };
-    }
-
-    @Override
-    public Collection<Class<? extends NodeModule>> getJavaModules()
-    {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public Collection<Class<? extends NodeModule>> getInternalJavaModules()
-    {
-        return Collections.emptyList();
-    }
+    /**
+     * Actually run the task. This method is guaranteed to only run in the script thread, so it may assume
+     * it can access any state of the script without locks.
+     */
+    void execute();
 }

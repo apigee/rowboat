@@ -19,56 +19,54 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+package io.apigee.rowboat.internal;
 
-package io.apigee.rowboat.node010;
-
-import io.apigee.rowboat.NodeModule;
-import io.apigee.rowboat.spi.NodeImplementation;
-
-import java.util.Collection;
-import java.util.Collections;
-
-public class Node010Implementation
-    implements NodeImplementation
+/**
+ * This is an exception that includes an error code value.
+ */
+public class NodeOSException
+    extends RuntimeException
 {
-    private static final String B = "/node010";
-    private static final String R = B + "/rowboat/";
+    private final String code;
+    private String path;
 
-    @Override
-    public String getVersion()
+    public NodeOSException(String code)
     {
-        return "0.10.25";
+        super(code);
+        this.code = code;
     }
 
-    @Override
-    public String getMainScript()
+    public NodeOSException(String code, String path)
     {
-        return R + "trireme.js";
+        super(code + ':' + path);
+        this.code = code;
+        this.path = path;
     }
 
-    @Override
-    public String[][] getBuiltInModules()
+    public NodeOSException(String code, Throwable cause)
     {
-        return new String[0][];
+        super(code);
+        this.code = code;
+        initCause(cause);
     }
 
-    @Override
-    public String[][] getInternalModules()
+    public NodeOSException(String code, Throwable cause, String path)
     {
-        return new String[][] {
-            { "process", R + "process.js" }
-        };
+        super(code + ':' + path);
+        this.code = code;
+        this.path = path;
+        initCause(cause);
     }
 
-    @Override
-    public Collection<Class<? extends NodeModule>> getJavaModules()
-    {
-        return Collections.emptyList();
+    public String getCode() {
+        return code;
     }
 
-    @Override
-    public Collection<Class<? extends NodeModule>> getInternalJavaModules()
-    {
-        return Collections.emptyList();
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
     }
 }

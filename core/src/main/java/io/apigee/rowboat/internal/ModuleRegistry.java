@@ -21,6 +21,7 @@
  */
 package io.apigee.rowboat.internal;
 
+import io.apigee.rowboat.InternalNodeModule;
 import io.apigee.rowboat.NodeException;
 import io.apigee.rowboat.NodeModule;
 import io.apigee.rowboat.spi.NodeImplementation;
@@ -62,22 +63,15 @@ import java.util.ServiceLoader;
  */
 public class ModuleRegistry
 {
-    /**
-     * Add this prefix to internal module code before compiling -- it makes them behave as they expect and as
-     * internal modules from "normal" Node behave. This same code must also be included by the Rhino
-     * compiler, so it is repeated in pom.xml and must be changed there if it's changed here. This makes these
-     * modules be loaded exactly as they would be in traditional Node.
-     */
-    private static final String CODE_PREFIX = "(function (exports, require, module, __filename, __dirname) {";
-    private static final String CODE_POSTFIX = "});";
-
-    //private final HashMap<String, NodeModule>         modules         = new HashMap<String, NodeModule>();
-    //private final HashMap<String, InternalNodeModule> internalModules = new HashMap<String, InternalNodeModule>();
-    private final HashMap<String, Module>              builtInModules = new HashMap<>();
+    private final HashMap<String, NodeModule>          javaModules         = new HashMap<>();
+    private final HashMap<String, NodeModule>          internalJavaModules = new HashMap<>();
+    private final HashMap<String, ScriptModule>        builtInModules      = new HashMap<>();
+    private final HashMap<String, ScriptModule>        internalModules     = new HashMap<>();
     private final NodeImplementation                   implementation;
 
-    private CompiledScript mainScript;
-    private boolean loaded;
+    private CompiledScript                       mainScript;
+
+    private boolean        loaded;
 
     public ModuleRegistry(NodeImplementation impl)
     {
@@ -88,19 +82,22 @@ public class ModuleRegistry
         return implementation;
     }
 
-    public synchronized void load(ScriptEngine engine)
+    /**
+     * Load all the built-in modules. This is done once per node version. In here we instantiate copies
+     * of "NodeModule" interfaces (because that should be cheap) but don't compile JavaScript yet.
+     */
+
+    public synchronized void load()
     {
         if (loaded) {
             return;
         }
 
-        /*
         // Load all native Java modules implemented using the "NodeModule" interface
         ServiceLoader<NodeModule> loader = ServiceLoader.load(NodeModule.class);
         for (NodeModule mod : loader) {
             addNativeModule(mod);
         }
-        */
 
         /*
         // Load all JavaScript modules implemented using "NodeScriptModule"
@@ -116,17 +113,31 @@ public class ModuleRegistry
         }
         */
 
-        loadMainScript(implementation.getMainScript(), engine);
         for (String[] builtin : implementation.getBuiltInModules()) {
             builtInModules.put(builtin[0], new ScriptModule(builtin[0], builtin[1]));
         }
-        /*
-        for (Class<? extends NodeModule> nat : implementation.getNativeModules()) {
-            loadModuleByClass(nat);
+        for (String[] internal : implementation.getInternalModules()) {
+            internalModules.put(internal[0], new ScriptModule(internal[0], internal[1]));
         }
-        */
+        for (Class<? extends NodeModule> klass : implementation.getJavaModules()) {
+            NodeModule m = instantiate(klass);
+            javaModules.put(m.getModuleName(), m);
+        }
+        for (Class<? extends NodeModule> klass : implementation.getInternalJavaModules()) {
+            NodeModule m = instantiate(klass);
+            internalJavaModules.put(m.getModuleName(), m);
+        }
 
         loaded = true;
+    }
+
+    private NodeModule instantiate(Class<? extends NodeModule> klass)
+    {
+        try {
+            return klass.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+            throw new NodeException(e);
+        }
     }
 
     /*
@@ -152,28 +163,49 @@ public class ModuleRegistry
         Script compiled = cx.compileString(finalSource, name, 1, null);
         compiledModules.put(name, compiled);
     }
+   */
 
     private void addNativeModule(NodeModule mod)
     {
         if (mod instanceof InternalNodeModule) {
-            internalModules.put(mod.getModuleName(), (InternalNodeModule) mod);
+            internalJavaModules.put(mod.getModuleName(), mod);
         } else {
-            modules.put(mod.getModuleName(), mod);
+            javaModules.put(mod.getModuleName(), mod);
         }
     }
-    */
 
-    private void loadMainScript(String name, ScriptEngine engine)
+    protected CompiledScript loadFromSource(String name, ScriptEngine engine, boolean wrap)
     {
         try {
             try (InputStream in = implementation.getClass().getResourceAsStream(name)) {
-                InputStreamReader rdr = new InputStreamReader(in);
-                mainScript = ((Compilable)engine).compile(rdr);
+                if (in == null) {
+                    return null;
+                }
+                InputStreamReader rdr = new InputStreamReader(in, Charsets.UTF8);
+
+                StringBuilder src = new StringBuilder();
+                char[] buf = new char[4096];
+                int r;
+                do {
+                    r = rdr.read(buf);
+                    if (r > 0) {
+                        src.append(buf, 0, r);
+                    }
+                } while (r >= 0);
+
+                String allSrc;
+                if (wrap) {
+                    allSrc = ScriptRunner.MODULE_WRAP_START + src + ScriptRunner.MODULE_WRAP_END;
+                } else {
+                    allSrc = src.toString();
+                }
+                return ((Compilable)engine).compile(allSrc);
+
             } catch (ScriptException se) {
-                throw new NodeException("Can't compile main script: " + se, se);
+                throw new NodeException("Can't compile script: " + name + ": " + se, se);
             }
         } catch (IOException ioe) {
-            throw new NodeException("Can't read main script: " + ioe, ioe);
+            throw new NodeException("Can't read script: " + name + ": " + ioe, ioe);
         }
     }
 
@@ -214,62 +246,56 @@ public class ModuleRegistry
             throw new AssertionError("Error creating Script instance for " + className);
         }
     }
-
-    public NodeModule get(String name)
-    {
-        return modules.get(name);
-    }
-
-    public NodeModule getInternal(String name)
-    {
-        return internalModules.get(name);
-    }
-
-    public Script getCompiledModule(String name)
-    {
-        return compiledModules.get(name);
-    }
     */
 
-    public CompiledScript getMainScript()
+    public NodeModule getJavaModule(String name, boolean internal)
     {
+        if (internal) {
+            return internalJavaModules.get(name);
+        }
+        return javaModules.get(name);
+    }
+
+    public CompiledScript getModule(String name, ScriptEngine engine, boolean internal)
+    {
+        if (internal) {
+            ScriptModule m = internalModules.get(name);
+            return (m == null ? null : m.getScript(engine));
+        }
+        ScriptModule m = builtInModules.get(name);
+        return (m == null ? null : m.getScript(engine));
+    }
+
+    public synchronized CompiledScript getMainScript(ScriptEngine engine)
+    {
+        if (mainScript == null) {
+            mainScript = loadFromSource(implementation.getMainScript(), engine, false);
+        }
         return mainScript;
     }
 
-    private static abstract class Module
+    private class ScriptModule
     {
         final String name;
-
-        Module(String name)
-        {
-            this.name = name;
-        }
-
-
-    }
-
-    private static class ScriptModule
-        extends Module
-    {
         final String resourceName;
         CompiledScript script;
 
         ScriptModule(String name, String resourceName)
         {
-            super(name);
+            this.name = name;
             this.resourceName = resourceName;
         }
-    }
 
-    private static class JavaModule
-        extends Module
-    {
-        final NodeModule module;
-
-        JavaModule(String name, NodeModule module)
+        /**
+         * Lazily load and compile the script.
+         */
+        synchronized CompiledScript getScript(ScriptEngine engine)
         {
-            super(name);
-            this.module = module;
+            if (script != null) {
+                return script;
+            }
+            script = loadFromSource(resourceName, engine, true);
+            return script;
         }
     }
 }

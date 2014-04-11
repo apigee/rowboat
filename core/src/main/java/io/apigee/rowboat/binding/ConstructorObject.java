@@ -5,13 +5,13 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 
 public class ConstructorObject
-    extends AbstractBoundObject
+    extends AbstractScriptObject
 {
-    private final Class<? extends AbstractBoundObject> klass;
+    private final Class<? extends AbstractScriptObject> klass;
     private final ArrayList<JavaBinder.MethodInfo> methods = new ArrayList<>();
     private JavaBinder.MethodInfo constructor;
 
-    ConstructorObject(Class<? extends AbstractBoundObject> klass)
+    ConstructorObject(Class<? extends AbstractScriptObject> klass)
     {
         this.klass = klass;
     }
@@ -46,7 +46,7 @@ public class ConstructorObject
     public Object newObject(Object... args)
     {
         try {
-            AbstractBoundObject newObj = klass.newInstance();
+            AbstractScriptObject newObj = klass.newInstance();
             if (constructor != null) {
                 invokeConstructor(newObj, args);
             }
@@ -61,7 +61,7 @@ public class ConstructorObject
         }
     }
 
-    private void invokeConstructor(AbstractBoundObject newObj, Object... args)
+    private void invokeConstructor(AbstractScriptObject newObj, Object... args)
     {
         Object[] targetArgs = new Object[constructor.arity];
         for (int i = 0; i < constructor.arity; i++) {

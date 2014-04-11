@@ -21,9 +21,9 @@
  */
 package io.apigee.rowboat.internal;
 
-import io.apigee.trireme.core.internal.charsets.Base64Charset;
-import io.apigee.trireme.core.internal.charsets.BinaryCharset;
-import io.apigee.trireme.core.internal.charsets.HexCharset;
+import io.apigee.rowboat.charsets.Base64Charset;
+import io.apigee.rowboat.charsets.BinaryCharset;
+import io.apigee.rowboat.charsets.HexCharset;
 
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;

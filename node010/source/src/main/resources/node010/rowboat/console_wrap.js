@@ -20,55 +20,7 @@
  * SOFTWARE.
  */
 
-package io.apigee.rowboat.node010;
-
-import io.apigee.rowboat.NodeModule;
-import io.apigee.rowboat.spi.NodeImplementation;
-
-import java.util.Collection;
-import java.util.Collections;
-
-public class Node010Implementation
-    implements NodeImplementation
-{
-    private static final String B = "/node010";
-    private static final String R = B + "/rowboat/";
-
-    @Override
-    public String getVersion()
-    {
-        return "0.10.25";
-    }
-
-    @Override
-    public String getMainScript()
-    {
-        return R + "trireme.js";
-    }
-
-    @Override
-    public String[][] getBuiltInModules()
-    {
-        return new String[0][];
-    }
-
-    @Override
-    public String[][] getInternalModules()
-    {
-        return new String[][] {
-            { "process", R + "process.js" }
-        };
-    }
-
-    @Override
-    public Collection<Class<? extends NodeModule>> getJavaModules()
-    {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public Collection<Class<? extends NodeModule>> getInternalJavaModules()
-    {
-        return Collections.emptyList();
-    }
+function Console() {
 }
+module.exports.Console = Console;
+

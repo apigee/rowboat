@@ -83,7 +83,7 @@ public class NodeScript
         } else if (scriptFile == null) {
             runner = new ScriptRunner(this, env, sandbox, scriptName, script, args);
         } else {
-            runner = new ScriptRunner(this, env, sandbox, scriptName, scriptFile, args);
+            runner = new ScriptRunner(this, env, sandbox, scriptFile, args);
         }
         runner.setRegistry(registry);
         runner.setParentProcess(parentProcess);

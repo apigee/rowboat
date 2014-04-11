@@ -183,7 +183,7 @@
     global.GLOBAL = global;
     global.root = global;
     global.Buffer = NativeModule.require('buffer').Buffer;
-    //process.binding('buffer').setFastBufferConstructor(global.Buffer);
+    process.binding('buffer').setFastBufferConstructor(global.Buffer);
     process.domain = null;
     process._exiting = false;
   };
@@ -804,7 +804,7 @@
       // node.cc always re-calls the ticks after executing a callback.
       process._tickCallback();
     }
-    process._submitTick = submitTick;
+    process.setSubmitTick(submitTick);
 
     function submitDomainTick(func, thisObj, domain) {
       var fargs = copyArgs(arguments, 3);
@@ -825,7 +825,7 @@
     function usingDomains() {
       process.nextTick = process._nextDomainTick;
       process._tickCallback = process._tickDomainCallback;
-      process._submitTick = submitDomainTick;
+      process.setSubmitTick(submitDomainTick);
     }
     process._usingDomains = usingDomains;
   };
@@ -833,9 +833,7 @@
   // Below you find a minimal module system, which is used to load the node
   // core modules found in lib/*.js. All core modules are compiled into the
   // node binary, so they can be loaded faster.
-
-  var Script = process.binding('evals').NodeScript;
-  var runInThisContext = Script.runInThisContext;
+  // Trireme: We modified this to use infrastructure provided by the process object.
 
   function NativeModule(id) {
     this.filename = id + '.js';
@@ -844,7 +842,6 @@
     this.loaded = false;
   }
 
-  NativeModule._source = process.binding('natives');
   NativeModule._cache = {};
 
   NativeModule.require = function(id) {
@@ -873,32 +870,23 @@
 
   NativeModule.getCached = function(id) {
     return NativeModule._cache[id];
-  }
+  };
 
   NativeModule.exists = function(id) {
-    return NativeModule._source.hasOwnProperty(id);
-  }
-
-  NativeModule.getSource = function(id) {
-    return NativeModule._source[id];
-  }
+    return process.isNativeModule(id);
+  };
 
   NativeModule.wrap = function(script) {
     return NativeModule.wrapper[0] + script + NativeModule.wrapper[1];
   };
 
   NativeModule.wrapper = [
-    '(function (exports, require, module, __filename, __dirname) { ',
-    '\n});'
+    '(function (require, module, __filename, __dirname) { var exports = {}; ',
+    '\nreturn exports;\n});'
   ];
 
   NativeModule.prototype.compile = function() {
-    var source = NativeModule.getSource(this.id);
-    source = NativeModule.wrap(source);
-
-    var fn = runInThisContext(source, this.filename, true);
-    fn(this.exports, NativeModule.require, this, this.filename);
-
+    this.exports = process.getNativeModule(this.id, NativeModule.require, this, this.filename);
     this.loaded = true;
   };
 

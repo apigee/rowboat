@@ -1,11 +1,11 @@
 package io.apigee.rowboat.binding.test;
 
-import io.apigee.rowboat.binding.AbstractBoundObject;
+import io.apigee.rowboat.binding.AbstractScriptObject;
 import io.apigee.rowboat.binding.JSConstructor;
 import io.apigee.rowboat.binding.JSFunction;
 
 public class TestBoundObject
-    extends AbstractBoundObject
+    extends AbstractScriptObject
 {
     private Object foo;
     private Object bar;

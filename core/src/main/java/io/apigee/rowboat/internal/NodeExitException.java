@@ -30,7 +30,7 @@ import javax.script.ScriptException;
  * up the stack and make the script interpreter stop running. We also use it for timeouts.
  */
 public class NodeExitException
-    extends ScriptException
+    extends RuntimeException
 {
     public enum Reason { NORMAL, FATAL, TIMEOUT }
 

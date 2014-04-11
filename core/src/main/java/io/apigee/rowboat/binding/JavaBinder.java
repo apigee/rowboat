@@ -47,7 +47,7 @@ public class JavaBinder
      * If they are annotated, turn them into Function properties. The result is a JavaScript function
      * that may be called as a constructor to create instances of the class.
      */
-    public JSObject bind(Class<? extends AbstractBoundObject> klass)
+    public JSObject bind(Class<? extends AbstractScriptObject> klass)
     {
         boolean hasConstructor = false;
         ConstructorObject cons = new ConstructorObject(klass);

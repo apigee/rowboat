@@ -22,6 +22,10 @@
 
 package io.apigee.rowboat.spi;
 
+import io.apigee.rowboat.NodeModule;
+
+import java.util.Collection;
+
 /**
  * This class represents an implementation of Node.js -- it contains the JavaScript necessary to run all the
  * various modules.
@@ -51,34 +55,19 @@ public interface NodeImplementation
     String[][] getBuiltInModules();
 
     /**
+     * Return the same array, but for modules loaded using "process.binding" instead of "require".
+     */
+    String[][] getInternalModules();
+
+    /**
      * Return an array of modules that represent Java code to be loaded directly in the runtime.
      * These modules will be loaded via "require".
      */
-    JavaModule[] getJavaModules();
+    Collection<Class<? extends NodeModule>> getJavaModules();
 
     /**
      * Return an array of modules that represent Java code to be loaded directly in the runtime.
      * These modules will be loaded via "process.binding".
      */
-    JavaModule[] getInternalJavaModules();
-
-    public static class JavaModule
-    {
-        private final String name;
-        private final Class<? extends NodeImplementation> klass;
-
-        public JavaModule(String name, Class<? extends NodeImplementation> klass)
-        {
-            this.name = name;
-            this.klass = klass;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public Class<? extends NodeImplementation> getKlass() {
-            return klass;
-        }
-    }
+    Collection<Class<? extends NodeModule>> getInternalJavaModules();
 }

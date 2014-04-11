@@ -34,7 +34,7 @@ import java.util.Set;
  * Java classes that are wrapped by JavaBinder must implement this class.
  */
 
-public abstract class AbstractBoundObject
+public abstract class AbstractScriptObject
     extends AbstractJSObject
 {
     private Map<String, Object> members = Collections.emptyMap();
@@ -45,9 +45,7 @@ public abstract class AbstractBoundObject
     @Override
     public Object getMember(String name)
     {
-        Object m = members.get(name);
-        if (m instanceof Property) {
-
+        return members.get(name);
     }
 
     @Override
