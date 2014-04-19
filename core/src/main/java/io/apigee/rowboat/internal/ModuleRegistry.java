@@ -63,6 +63,13 @@ import java.util.ServiceLoader;
  */
 public class ModuleRegistry
 {
+    public static final String MODULE_WRAP_START_1 =
+        "function _";
+    public static final String MODULE_WRAP_START_2 =
+        "Module(require, module, exports, __filename, __dirname) { ";
+    public static final String MODULE_WRAP_END =
+        "\nreturn module.exports};";
+
     private final HashMap<String, NodeModule>          javaModules         = new HashMap<>();
     private final HashMap<String, NodeModule>          internalJavaModules = new HashMap<>();
     private final HashMap<String, ScriptModule>        builtInModules      = new HashMap<>();
@@ -174,7 +181,7 @@ public class ModuleRegistry
         }
     }
 
-    protected CompiledScript loadFromSource(String name, ScriptEngine engine, boolean wrap)
+    protected CompiledScript loadFromSource(String scriptName, String name, ScriptEngine engine, boolean wrap)
     {
         try {
             try (InputStream in = implementation.getClass().getResourceAsStream(name)) {
@@ -184,6 +191,11 @@ public class ModuleRegistry
                 InputStreamReader rdr = new InputStreamReader(in, Charsets.UTF8);
 
                 StringBuilder src = new StringBuilder();
+                if (wrap) {
+                    src.append(MODULE_WRAP_START_1);
+                    src.append(scriptName);
+                    src.append(MODULE_WRAP_START_2);
+                }
                 char[] buf = new char[4096];
                 int r;
                 do {
@@ -193,13 +205,10 @@ public class ModuleRegistry
                     }
                 } while (r >= 0);
 
-                String allSrc;
                 if (wrap) {
-                    allSrc = ScriptRunner.MODULE_WRAP_START + src + ScriptRunner.MODULE_WRAP_END;
-                } else {
-                    allSrc = src.toString();
+                    src.append(MODULE_WRAP_END);
                 }
-                return ((Compilable)engine).compile(allSrc);
+                return ((Compilable)engine).compile(src.toString());
 
             } catch (ScriptException se) {
                 throw new NodeException("Can't compile script: " + name + ": " + se, se);
@@ -269,7 +278,7 @@ public class ModuleRegistry
     public synchronized CompiledScript getMainScript(ScriptEngine engine)
     {
         if (mainScript == null) {
-            mainScript = loadFromSource(implementation.getMainScript(), engine, false);
+            mainScript = loadFromSource("rowboat", implementation.getMainScript(), engine, false);
         }
         return mainScript;
     }
@@ -294,7 +303,7 @@ public class ModuleRegistry
             if (script != null) {
                 return script;
             }
-            script = loadFromSource(resourceName, engine, true);
+            script = loadFromSource(name, resourceName, engine, true);
             return script;
         }
     }

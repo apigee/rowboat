@@ -56,6 +56,7 @@ public interface NodeImplementation
 
     /**
      * Return the same array, but for modules loaded using "process.binding" instead of "require".
+     * Return the same array, but for modules loaded using "process.binding" instead of "require".
      */
     String[][] getInternalModules();
 

@@ -36,6 +36,7 @@ var Version =                Java.type('io.apigee.rowboat.internal.Version');
 var NANO = 100000000;
 var TITLE = "rowboat";
 var PLATFORM = "java";
+var EXECUTABLE = "./node";
 
 function Process(runtime) {
   this._runtime = runtime;
@@ -45,9 +46,21 @@ function Process(runtime) {
   this._tickInfoBox[1] = null;
   this._tickInfoBox[2] = null;
   this._startTime = System.currentTimeMillis();
+  this.moduleLoadList = [];
 
   this.title = TITLE;
   this.platform = PLATFORM;
+  this.execPath = EXECUTABLE;
+
+  // Set up stuff that comes from the runtime environment
+  var script = runtime.getScriptObject();
+  if (script.getSource() != null) {
+    this._eval = script.getSource();
+  }
+  this._print_eval = script.isPrintEval();
+  this._forceRepl = script.isForceRepl();
+  this.throwDeprecation = !script.isNoDeprecation();
+  this.traceDeprecation = script.isTraceDeprecation();
 
   Object.defineProperty(this, "env", {
     get: this.getEnv
@@ -95,7 +108,14 @@ function Process(runtime) {
   // TODO config
   // TODO features
 }
-module.exports = Process;
+
+// Rowboat note: Nashorn really wants to call a function on our object but only if it comes
+// from JavaScript and not from the JSObject interface, so do this:
+module.exports = {};
+
+module.exports.createProcess = function(runtime) {
+  return new Process(runtime);
+};
 
 Process.prototype.getRuntime = function() {
   return this._runtime;
@@ -127,8 +147,8 @@ Process.prototype.getVersion = function() {
 Process.prototype.getVersions = function() {
   return {
     rowboat: Version.ROWBOAT_VERSION,
-    node: Version.NODE_VERSION,
-    ssl: Version.SSL_VERSION
+    ssl: Version.SSL_VERSION,
+    node: getRuntime().getNodeVersion()
   };
 };
 
@@ -138,8 +158,8 @@ Process.prototype.getArch = function() {
 };
 
 function createStreamHandle(handle) {
-  var wrap = process.binding('java_stream_wrap');
-  return new wrap.JavaStream(handle);
+  var wrap = process.binding('stream_wrap');
+  return new wrap.Stream(handle);
 }
 
 function createConsoleHandle(handle) {
@@ -150,27 +170,27 @@ function createConsoleHandle(handle) {
 Process.prototype.getStdoutHandle = function() {
   var streamHandle;
   if ((this._runtime.getStdout() == System.out) && ConsoleHandle.isConsoleSupported()) {
-    streamHandle = new ConsoleHandle(runner);
+    streamHandle = new ConsoleHandle(this._runtime);
     return createConsoleHandle(streamHandle);
   } else {
-    streamHandle = new JavaOutputStreamHandle(runner.getStdout());
+    streamHandle = new JavaOutputStreamHandle(this._runtime.getStdout(), this._runtime);
     return createStreamHandle(streamHandle);
   }
 };
 
 Process.prototype.getStdinHandle = function() {
   var streamHandle;
-  if ((runner.getStdin() == System.in) && ConsoleHandle.isConsoleSupported()) {
-    streamHandle = new ConsoleHandle(runner);
+  if ((this._runtime.getStdin() == System.in) && ConsoleHandle.isConsoleSupported()) {
+    streamHandle = new ConsoleHandle(this._runtime);
     return createConsoleHandle(streamHandle);
   } else {
-    streamHandle = new JavaInputStreamHandle(runner.getStdin(), runner);
+    streamHandle = new JavaInputStreamHandle(this._runtime.getStdin(), this._runtime);
     return createStreamHandle(streamHandle);
   }
 };
 
 Process.prototype.getStderrHandle = function() {
-  var streamHandle = new JavaOutputStreamHandle(runner.getStderr());
+  var streamHandle = new JavaOutputStreamHandle(this._runtime.getStderr(), this._runtime);
   return createStreamHandle(streamHandle);
 };
 
@@ -180,13 +200,15 @@ Process.prototype.setSubmitTick = function(submit) {
 
 Process.prototype.binding = function(module) {
   if (this._bindingCache[module]) {
-    return this._bindingCache[module];
+    return this._bindingCache[module].exports;
   }
 
-  // TODO require, module
-  var mod = this._runtime.initializeModule(module, true, null, null, module + '.js');
+  var mod = { exports: {} };
   this._bindingCache[module] = mod;
-  return mod;
+  mod.exports = this._runtime.initializeModule(module, true, this._nativeModule.require,
+                                               mod, mod.exports, module + '.js');
+  mod.loaded = true;
+  return mod.exports;
 };
 
 Process.prototype.isNativeModule = function(name) {
@@ -194,7 +216,10 @@ Process.prototype.isNativeModule = function(name) {
 };
 
 Process.prototype.getNativeModule = function(name, require, module, fileName) {
-  return this._runtime.initializeModule(name, false, require, module, fileName);
+  if (!module.exports) {
+    module.exports = {};
+  }
+  return this._runtime.initializeModule(name, false, require, module, module.exports, fileName);
 };
 
 Process.prototype.abort = function() {

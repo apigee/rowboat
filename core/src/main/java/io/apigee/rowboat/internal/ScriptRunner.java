@@ -30,12 +30,16 @@ import io.apigee.rowboat.Sandbox;
 import io.apigee.rowboat.ScriptFuture;
 import io.apigee.rowboat.ScriptStatus;
 import io.apigee.rowboat.ScriptTask;
+import io.apigee.rowboat.binding.DefaultScriptObject;
 import jdk.nashorn.api.scripting.JSObject;
+import jdk.nashorn.api.scripting.ScriptObjectMirror;
+import jdk.nashorn.api.scripting.ScriptUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.script.Compilable;
 import javax.script.CompiledScript;
+import javax.script.Invocable;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -75,34 +79,26 @@ public class ScriptRunner
 
     public static final String TIMEOUT_TIMESTAMP_KEY = "_tickTimeout";
 
-    public static final String MODULE_WRAP_START =
-        "(function (require, module, __filename, __dirname) { var exports = {}; ";
-    public static final String MODULE_WRAP_END =
-        "\nreturn exports;\n});";
-
     private static final ThreadLocal<ScriptRunner> threadRunner = new ThreadLocal<>();
     private static final ScriptEngineManager engineManager = new ScriptEngineManager();
 
     private final  NodeEnvironment env;
-    private        ModuleRegistry  registry;
-    private        File            scriptFile;
-    private        String          script;
-    private final  NodeScript scriptObject;
+    private final  ModuleRegistry  registry;
+    private final  NodeScript      scriptObject;
     private final  String[]        args;
-    private        String[]        argv;
-    private        ScriptFuture future;
-    private final  CountDownLatch          initialized = new CountDownLatch(1);
+    private        ScriptFuture    future;
+    private final  CountDownLatch  initialized = new CountDownLatch(1);
     private final   Sandbox        sandbox;
-    private final  PathTranslator          pathTranslator;
-    private final  ExecutorService         asyncPool;
+    private final  PathTranslator  pathTranslator;
+    private final  ExecutorService asyncPool;
     private final IdentityHashMap<Closeable, Closeable> openHandles =
-        new IdentityHashMap<Closeable, Closeable>();
+        new IdentityHashMap<>();
 
-    private final  ConcurrentLinkedQueue<Activity> tickFunctions = new ConcurrentLinkedQueue<Activity>();
-    private final  PriorityQueue<Activity>       timerQueue    = new PriorityQueue<Activity>();
-    private final  Selector                      selector;
-    private        int                           timerSequence;
-    private final  AtomicInteger                 pinCount      = new AtomicInteger(0);
+    private final  ConcurrentLinkedQueue<Activity> tickFunctions = new ConcurrentLinkedQueue<>();
+    private final  PriorityQueue<Activity>         timerQueue    = new PriorityQueue<>();
+    private final  Selector                        selector;
+    private        int                             timerSequence;
+    private final  AtomicInteger                   pinCount      = new AtomicInteger(0);
 
     // Globals that are set up for the process
     protected JSObject          process;
@@ -112,56 +108,21 @@ public class ScriptRunner
     private   JSObject          immediateCallback;
     //private Buffer.BufferModuleImpl buffer;
     private String              workingDirectory;
-    private String              scriptFileName;
     private Object              parentProcess;
-    private boolean             forceRepl;
 
     private boolean             needTickCallback;
     private boolean             needImmediateCallback;
     private int                 umask = DEFAULT_UMASK;
     private ScriptContext       context;
     private ScriptEngine        engine;
+    private Invocable           invocableEngine;
 
     public ScriptRunner(NodeScript so, NodeEnvironment env, Sandbox sandbox,
-                        File scriptFile, String[] args)
-    {
-        this(so, env, sandbox, args);
-        this.scriptFile = scriptFile;
-
-        try {
-            File scriptPath = new File(pathTranslator.reverseTranslate(scriptFile.getAbsolutePath()));
-            if (scriptPath == null) {
-                this.scriptFileName = "";
-            } else {
-                this.scriptFileName = scriptPath.getPath();
-            }
-        } catch (IOException ioe) {
-            throw new AssertionError("Error translating file path: " + ioe);
-        }
-    }
-
-    public ScriptRunner(NodeScript so, NodeEnvironment env, Sandbox sandbox,
-                        String scriptName, String script,
-                        String[] args)
-    {
-        this(so, env, sandbox, args);
-        this.script = script;
-        this.scriptFileName = scriptName;
-    }
-
-    public ScriptRunner(NodeScript so, NodeEnvironment env, Sandbox sandbox,
-                        String[] args, boolean forceRepl)
-    {
-        this(so, env, sandbox, args);
-        this.forceRepl = forceRepl;
-    }
-
-    private ScriptRunner(NodeScript so, NodeEnvironment env, Sandbox sandbox,
-                         String[] args)
+                        ModuleRegistry registry, String[] args)
     {
         this.env = env;
         this.scriptObject = so;
-
+        this.registry = registry;
         this.args = args;
         this.sandbox = sandbox;
         this.pathTranslator = new PathTranslator();
@@ -202,6 +163,10 @@ public class ScriptRunner
         }
     }
 
+    public String getNodeVersion() {
+        return registry.getImplementation().getVersion();
+    }
+
     public void close()
     {
         try {
@@ -227,10 +192,6 @@ public class ScriptRunner
         return registry;
     }
 
-    public void setRegistry(ModuleRegistry registry) {
-        this.registry = registry;
-    }
-
     @Override
     public Sandbox getSandbox() {
         return sandbox;
@@ -239,6 +200,14 @@ public class ScriptRunner
     @Override
     public NodeScript getScriptObject() {
         return scriptObject;
+    }
+
+    public ScriptEngine getScriptEngine() {
+        return engine;
+    }
+
+    public ScriptContext getScriptContext() {
+        return context;
     }
 
     @SuppressWarnings("unused")
@@ -554,8 +523,10 @@ public class ScriptRunner
         try {
             engine = engineManager.getEngineByName("nashorn");
             assert(engine instanceof Compilable);
+            assert(engine instanceof Invocable);
+            invocableEngine = (Invocable)engine;
 
-            context = new SimpleScriptContext();
+            context = engine.getContext();
 
             // Lazy first-time init of the node version.
             registry.load();
@@ -568,30 +539,17 @@ public class ScriptRunner
                 initialized.countDown();
             }
 
-            if ((scriptFile == null) && (script == null)) {
-                // Just have trireme.js process "process.argv"
-                process.setMember("_forceRepl", true);
-                setArgv(null);
-            } else if (scriptFile == null) {
-                // If the script was passed as a string, pretend that "-e" was used to "eval" it.
-                // We also get here if we were called by "executeModule".
-                process.setMember("_eval", script);
-                process.setMember("_print_eval", scriptObject.isPrintEval());
-                setArgv(scriptFileName);
-            } else {
-                // Otherwise, assume that the script was the second argument to "argv".
-                setArgv(scriptFileName);
-            }
-
             // Run "trireme.js," which is our equivalent of "node.js". It returns a function that takes
             // "process". When done, we may have ticks to execute.
             CompiledScript mainScript = registry.getMainScript(engine);
-            JSObject main = (JSObject)mainScript.eval(context);
-            assert(main.isFunction());
+            mainScript.eval();
 
             boolean timing = startTiming();
             try {
-                main.call(process, process);
+                // Pass the bindings (the globals) to the main function because it has to set its
+                // "global" variables in there.
+                invocableEngine.invokeFunction("_triremeMain", process,
+                                               engine.getBindings(ScriptContext.ENGINE_SCOPE));
             } catch (Throwable t) {
                 boolean handled = handleScriptException(t);
                 if (!handled) {
@@ -654,27 +612,9 @@ public class ScriptRunner
         return status;
     }
 
-    private void setArgv(String scriptName)
-    {
-        if (scriptName == null) {
-            argv = new String[args == null ? 1 : args.length + 1];
-        } else {
-            argv = new String[args == null ? 2 : args.length + 2];
-        }
-
-        int p = 0;
-        argv[p++] = EXECUTABLE_NAME;
-        if (scriptName != null) {
-            argv[p++] = scriptName;
-        }
-        if (args != null) {
-            System.arraycopy(args, 0, argv, p, args.length);
-        }
-    }
-
     @SuppressWarnings("unused")
     public String[] getArgv() {
-        return argv;
+        return args;
     }
 
     private ScriptStatus mainLoop()
@@ -931,11 +871,24 @@ public class ScriptRunner
     private void initGlobals()
         throws NodeException
     {
+        // As part of bootstrapping, we need to supply a "module" object for "process" to set up for us
+        JSObject bootstrapModule = new DefaultScriptObject();
+        JSObject exports = new DefaultScriptObject();
+        bootstrapModule.setMember("exports", exports);
+
         // Bootstrap the whole thing with "process," which is our own internal JS/Java code
         // This is implemented by the "process" internal module in each node implementation
-        JSObject processExports = (JSObject)initializeModule("process", true, null, null, null);
-        assert(processExports.isFunction());
-        process = (JSObject)processExports.newObject(this);
+        Object exp = initializeModule("process", true, null, bootstrapModule, exports, "process.js");
+        try {
+            process = (JSObject)invocableEngine.invokeMethod(exp, "createProcess",
+                                                             new Object[] { this });
+        } catch (ScriptException|NoSuchMethodException e) {
+            throw new NodeException(e);
+        }
+
+        engine.getBindings(ScriptContext.ENGINE_SCOPE).put("global", new DefaultScriptObject());
+
+        //process = (JSObject)processClass.newObject(this);
 
         // The buffer module needs special handling because of the "charsWritten" variable
         // TODO
@@ -962,11 +915,11 @@ public class ScriptRunner
     }
 
     /**
-     * Initialize a native module implemented in Java code.
+     * Initialize a native module implemented in Java or JavaScript code.
      */
     @SuppressWarnings("unused")
     public Object initializeModule(String modName, boolean internal,
-                                   JSObject require, JSObject module, CharSequence fileName)
+                                   Object require, Object module, Object exports, String fileName)
     {
         NodeModule mod = registry.getJavaModule(modName, internal);
         if (mod != null) {
@@ -978,18 +931,22 @@ public class ScriptRunner
             return null;
         }
 
-        JSObject result;
+        // TODO __dirname?
+
+        Object result;
         try {
-            result = (JSObject)script.eval(context);
+            //context.setAttribute(ScriptEngine.FILENAME, modName + ".js", ScriptContext.ENGINE_SCOPE);
+            script.eval();
         } catch (ScriptException se) {
             throw new NodeException("Error initializing module: " + se, se);
         }
-        assert(result.isFunction());
 
-        // TODO dirname?
-        JSObject exports =
-            (JSObject)result.call(process, require, module, fileName);
-        return exports;
+        try {
+            //context.setAttribute(ScriptEngine.FILENAME, modName + ".js", ScriptContext.ENGINE_SCOPE);
+            return invocableEngine.invokeFunction('_' + modName + "Module", require, module, exports, fileName);
+        } catch (ScriptException|NoSuchMethodException e) {
+            throw new NodeException(e);
+        }
     }
 
     /**

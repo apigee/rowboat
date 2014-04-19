@@ -27,6 +27,7 @@ import io.apigee.rowboat.internal.ScriptRunner;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,9 +40,8 @@ public class NodeScript
 {
     private final NodeEnvironment env;
 
-    private File scriptFile;
-    private String script;
-    private String scriptName;
+    private ModuleRegistry registry;
+    private String source;
     private final String[] args;
     private ScriptRunner runner;
     private Object attachment;
@@ -50,6 +50,8 @@ public class NodeScript
     private boolean pin;
     private boolean forceRepl;
     private boolean printEval;
+    private boolean noDeprecation;
+    private boolean traceDeprecation;
     private String workingDir;
     private Map<String, String> environment;
     private String nodeVersion = NodeEnvironment.DEFAULT_NODE_VERSION;
@@ -59,6 +61,62 @@ public class NodeScript
         this.args = args;
         this.env = env;
         this.sandbox = env.getSandbox();
+    }
+
+    private void processArgs()
+        throws NodeException
+    {
+        int p = 0;
+        int start = 0;
+        while (p < args.length) {
+            String a = args[p];
+            switch (a) {
+            case "-v":
+            case "--version":
+                System.out.println(registry.getImplementation().getVersion());
+                System.exit(0);
+
+            case "-e":
+            case "--eval":
+                if (args.length <= (p + 1)) {
+                    throw new NodeException("-e or --eval argument requires a script argument");
+                }
+                start += 2;
+                p++;
+                source = args[p];
+                break;
+
+            case "-p":
+            case "--print":
+                start++;
+                printEval = true;
+                break;
+
+            case "-i":
+            case "--interactive":
+                start++;
+                forceRepl = true;
+                break;
+
+            case "--no-deprecation":
+                start++;
+                noDeprecation = true;
+                break;
+
+            case "--trace-deprecation":
+                start++;
+                traceDeprecation = true;
+                break;
+            }
+            p++;
+        }
+
+        // Now strip out the "leftover" args so what's left are args for the script
+        assert(start <= args.length);
+        int numArgs = (args.length - start) + 1;
+        String[] newArgs = new String[numArgs];
+        newArgs[0] = ScriptRunner.EXECUTABLE_NAME;
+        System.arraycopy(args, start, newArgs, 1, (numArgs - 1));
     }
 
     /**
@@ -76,16 +134,10 @@ public class NodeScript
     public ScriptFuture execute()
         throws NodeException
     {
-        ModuleRegistry registry = getRegistry();
+        registry = getRegistry();
+        processArgs();
 
-        if ((scriptFile == null) && (script == null)) {
-            runner = new ScriptRunner(this, env, sandbox, args, forceRepl);
-        } else if (scriptFile == null) {
-            runner = new ScriptRunner(this, env, sandbox, scriptName, script, args);
-        } else {
-            runner = new ScriptRunner(this, env, sandbox, scriptFile, args);
-        }
-        runner.setRegistry(registry);
+        runner = new ScriptRunner(this, env, sandbox, registry, args);
         runner.setParentProcess(parentProcess);
         if (workingDir != null) {
             try {
@@ -118,15 +170,11 @@ public class NodeScript
     public ScriptFuture executeModule()
         throws NodeException
     {
-        if (scriptFile == null) {
-            throw new NodeException("Modules must be specified as a file name and not as a string");
-        }
-        ModuleRegistry registry = getRegistry();
+        registry = getRegistry();
 
-        runner = new ScriptRunner(this, env, sandbox, scriptName,
-                                  makeModuleScript(), args);
+        source = makeModuleScript();
+        runner = new ScriptRunner(this, env, sandbox, registry, args);
         runner.setParentProcess(parentProcess);
-        runner.setRegistry(registry);
         if (workingDir != null) {
             try {
                 runner.setWorkingDirectory(workingDir);
@@ -157,10 +205,13 @@ public class NodeScript
      */
     private String makeModuleScript()
     {
+        throw new AssertionError("Not yet implemented");
+        /*
         return
             "var runtime = process.binding('trireme-module-loader');\n" +
             "var suppliedModule = require('" + scriptFile.getAbsolutePath() + "');\n" +
             "runtime.loaded(suppliedModule);";
+            */
     }
 
     /**
@@ -210,27 +261,51 @@ public class NodeScript
      * Pin the script before running it -- this ensures that the script will never exit unless process.exit
      * is called or the future is explicitly cancelled. Used to run the "repl".
      */
-    public void setPinned(boolean p)
-    {
+    public void setPinned(boolean p) {
         this.pin = p;
     }
 
-    public boolean isPinned()
-    {
+    public boolean isPinned() {
         return pin;
+    }
+
+    public String getSource() {
+        return source;
     }
 
     /**
      * If the script was passed as a string when the script was created, print the result at the end.
      */
-    public void setPrintEval(boolean print)
-    {
+    public void setPrintEval(boolean print) {
         this.printEval = print;
     }
 
-    public boolean isPrintEval()
-    {
+    public boolean isPrintEval() {
         return printEval;
+    }
+
+    public boolean isNoDeprecation() {
+        return noDeprecation;
+    }
+
+    public void setNoDeprecation(boolean noDeprecation) {
+        this.noDeprecation = noDeprecation;
+    }
+
+    public boolean isTraceDeprecation() {
+        return traceDeprecation;
+    }
+
+    public void setTraceDeprecation(boolean traceDeprecation) {
+        this.traceDeprecation = traceDeprecation;
+    }
+
+    public boolean isForceRepl() {
+        return forceRepl;
+    }
+
+    public void setForceRepl(boolean forceRepl) {
+        this.forceRepl = forceRepl;
     }
 
     /**

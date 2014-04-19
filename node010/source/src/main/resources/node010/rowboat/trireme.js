@@ -31,8 +31,8 @@
  * For instance, we don't set up stdin and stdout the same way, since Java handles the different ways
  * that we may do file and console I/O.
  */
-(function(process) {
-  this.global = this;
+function _triremeMain(process, topScope) {
+  topScope.global = topScope;
 
   function startup() {
     var EventEmitter = NativeModule.require('events').EventEmitter;
@@ -182,8 +182,14 @@
     global.global = global;
     global.GLOBAL = global;
     global.root = global;
+
+    // Bring in our internal Java-based buffer class now
+    process.binding('buffer');
+    // Bring in our internal JavaScript-based prototype functions for this class as well
+    process.binding('slowbuffer');
+    // This the "real" buffer module, which should now work!
     global.Buffer = NativeModule.require('buffer').Buffer;
-    process.binding('buffer').setFastBufferConstructor(global.Buffer);
+
     process.domain = null;
     process._exiting = false;
   };
@@ -221,11 +227,15 @@
   };
 
   startup.globalConsole = function() {
-    global.__defineGetter__('console', function() {
-      return NativeModule.require('console');
+    var console;
+    Object.defineProperty(global, 'console', {
+      get: function() {
+        if (console) return console;
+        console = NativeModule.require('console');
+        return console;
+      }
     });
   };
-
 
   startup._lazyConstants = null;
 
@@ -565,7 +575,7 @@
   startup.processStdio = function() {
     var stdin, stdout, stderr;
 
-    process.__defineGetter__('stdout', function() {
+    Object.defineProperty(process, 'stdout', { get: function() {
       if (stdout) return stdout;
 
       // Create a handle that could be the TTY
@@ -593,9 +603,9 @@
         });
       }
       return stdout;
-    });
+    }});
 
-    process.__defineGetter__('stderr', function() {
+    Object.defineProperty(process, 'stderr', { get: function() {
       if (stderr) return stderr;
 
       var net = NativeModule.require('net');
@@ -611,9 +621,9 @@
         stderr.emit('error', er);
       };
       return stderr;
-    });
+    }});
 
-    process.__defineGetter__('stdin', function() {
+    Object.defineProperty(process, 'stdin', { get: function() {
       if (stdin) return stdin;
       stdin = process._stdinStream;
 
@@ -654,7 +664,7 @@
       });
 
       return stdin;
-    });
+    }});
 
     process.openStdin = function() {
       process.stdin.resume();
@@ -842,6 +852,7 @@
     this.loaded = false;
   }
 
+  process._nativeModule = NativeModule;
   NativeModule._cache = {};
 
   NativeModule.require = function(id) {
@@ -881,8 +892,8 @@
   };
 
   NativeModule.wrapper = [
-    '(function (require, module, __filename, __dirname) { var exports = {}; ',
-    '\nreturn exports;\n});'
+    '(function (exports, require, module, __filename, __dirname) {',
+    '\n});'
   ];
 
   NativeModule.prototype.compile = function() {
@@ -895,4 +906,5 @@
   };
 
   startup();
-});
+}
+

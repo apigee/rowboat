@@ -22,7 +22,8 @@
 package io.apigee.rowboat.handles;
 
 import io.apigee.rowboat.NodeRuntime;
-import io.apigee.rowboat.modules.Constants;
+import io.apigee.rowboat.internal.Constants;
+import jdk.nashorn.api.scripting.JSObject;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -43,19 +44,19 @@ public class JavaInputStreamHandle
     private static final int READ_BUFFER_SIZE = 16392;
 
     private final InputStream in;
-    private final NodeRuntime runtime;
 
     private Future<?> readTask;
     private volatile boolean reading;
 
     public JavaInputStreamHandle(InputStream in, NodeRuntime runtime)
     {
+        super(runtime);
         this.in = in;
         this.runtime = runtime;
     }
 
     @Override
-    public void startReading(final HandleListener listener, final Object context)
+    public void startReading(Object context, JSObject onReadComplete)
     {
         if (reading) {
             return;
@@ -71,12 +72,12 @@ public class JavaInputStreamHandle
             @Override
             public void run()
             {
-                readLoop(listener, context);
+                readLoop(context, onReadComplete);
             }
         });
     }
 
-    protected void readLoop(HandleListener listener, Object context)
+    protected void readLoop(Object context, JSObject onReadComplete)
     {
         byte[] readBuf = new byte[READ_BUFFER_SIZE];
         try {
@@ -87,21 +88,21 @@ public class JavaInputStreamHandle
                     ByteBuffer buf = ByteBuffer.allocate(count);
                     buf.put(readBuf, 0, count);
                     buf.flip();
-                    listener.onReadComplete(buf, false, context);
+                    submitReadCallback(context, null, buf, onReadComplete);
                 }
             }
             if (count < 0) {
-                listener.onReadError(Constants.EOF, false, context);
+                submitReadCallback(context, Constants.EOF, null, onReadComplete);
             }
 
         } catch (InterruptedIOException iee) {
             // Nothing special to do, since we were asked to stop reading
         } catch (EOFException eofe) {
-            listener.onReadError(Constants.EOF, false, context);
+            submitReadCallback(context, Constants.EOF, null, onReadComplete);
         } catch (IOException ioe) {
             String err =
                 ("Stream Closed".equalsIgnoreCase(ioe.getMessage()) ? Constants.EOF : Constants.EIO);
-            listener.onReadError(err, false, context);
+            submitReadCallback(context, err, null, onReadComplete);
         }
     }
 

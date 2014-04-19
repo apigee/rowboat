@@ -19,12 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.apigee.rowboat.modules;
-
-import io.apigee.rowboat.InternalNodeModule;
-import io.apigee.rowboat.NodeRuntime;
-import io.apigee.rowboat.binding.DefaultScriptObject;
-import jdk.nashorn.api.scripting.JSObject;
+package io.apigee.rowboat.internal;
 
 import java.util.HashMap;
 
@@ -32,7 +27,6 @@ import java.util.HashMap;
  * Includes all the constants from the built-in "constants" module in Node.
  */
 public class Constants
-    implements InternalNodeModule
 {
     public static final int O_APPEND    = 0x0008;
     public static final int O_CREAT     = 0x0200;
@@ -114,53 +108,6 @@ public class Constants
         errnos.put(EPERM, 1);
         errnos.put(EPIPE, 32);
         errnos.put(ESRCH, 3);
-    }
-
-
-    @Override
-    public String getModuleName()
-    {
-        return "constants";
-    }
-
-    /**
-     * Register integer constants that are required by lots of node code -- mainly OS-level stuff.
-     */
-    @Override
-    public Object getExports(NodeRuntime runner)
-    {
-        JSObject exports = new DefaultScriptObject();
-
-        exports.setMember("O_APPEND", O_APPEND);
-        exports.setMember("O_CREAT", O_CREAT);
-        exports.setMember("O_DIRECTORY", O_DIRECTORY);
-        exports.setMember("O_EXCL", O_EXCL);
-        exports.setMember("O_NOCTTY", O_NOCTTY);
-        exports.setMember("O_NOFOLLOW", O_NOFOLLOW);
-        exports.setMember("O_RDONLY", O_RDONLY);
-        exports.setMember("O_RDWR", O_RDWR);
-        // See above regarding "lchmod"
-        //exports.setMember("O_SYMLINK", O_SYMLINK);
-        exports.setMember("O_SYNC", O_SYNC);
-        exports.setMember("O_TRUNC", O_TRUNC);
-        exports.setMember("O_WRONLY", O_WRONLY);
-
-        exports.setMember("S_IFDIR", S_IFDIR);
-        exports.setMember("S_IFREG", S_IFREG);
-        exports.setMember("S_IFBLK", S_IFBLK);
-        exports.setMember("S_IFCHR", S_IFCHR);
-        exports.setMember("S_IFLNK", S_IFLNK);
-        exports.setMember("S_IFIFO", S_IFIFO);
-        exports.setMember("S_IFSOCK", S_IFSOCK);
-        exports.setMember("S_IFMT", S_IFMT);
-
-        exports.setMember("SIGHUP", SIGHUP);
-        exports.setMember("SIGINT", SIGINT);
-        exports.setMember("SIGKILL", SIGKILL);
-        exports.setMember("SIGTERM", SIGTERM);
-        exports.setMember("SIGQUIT", SIGQUIT);
-
-        return exports;
     }
 
     /**

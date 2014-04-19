@@ -22,7 +22,7 @@
 
 var Charsets = Java.type('io.apigee.rowboat.internal.Charsets');
 
-var Referenceable = require('referenceable').Referenceable;
+var Referenceable = process.binding('referenceable').Referenceable;
 var util = require('util');
 
 function Stream(handle) {
@@ -56,11 +56,11 @@ Stream.prototype.close = function(cb) {
 
 Stream.prototype.writeBuffer = function(buf) {
   var req = {};
-  var len = this.handle.write(buf, req);
+  var len = this.handle.write(buf, req, onWriteComplete);
   req.bytes = len;
+  req._handle = self.handle;
   this.bytes += len;
   return req;
-  // TODO pass callback for oncomplete
 };
 
 Stream.prototype.writeUtf8String = function(s) {
@@ -77,16 +77,40 @@ Stream.prototype.writeAsciiString = function(s) {
 
 function writeString(self, s, cs) {
   var req = {};
-  var len = self.handle.write(s, cs, req);
+  var len = self.handle.write(s, cs, req, onWriteComplete);
   req.bytes = len;
+  req._handle = self.handle;
   self.bytes += len;
   return req;
 }
 
+function onWriteComplete(req, err, calledInline) {
+  if (calledInline) {
+    if (req.oncomplete) {
+      req.oncomplete(err, req._handle, req);
+    }
+  } else {
+    // This version of Node expects to set "oncomplete" only after write returns.
+    setImmediate(function() {
+      if (req.oncomplete) {
+          req.oncomplete(err, req._handle, req);
+      }
+    });
+  }
+}
+
 Stream.prototype.readStart = function() {
-  // TODO set up callbacks so that they call "onread"
+  this.handle.startReading(this, onReadComplete);
 };
 
 Stream.prototype.readStop = function() {
-  // TODO don't worry about the callbacks
+  this.handle.stopReading();
 };
+
+function onReadComplete(self, err, buf) {
+  if (self.onRead) {
+    process.errno = (err ? err : null);
+    self.onread(buf, 0, buf.length);
+  }
+}
+

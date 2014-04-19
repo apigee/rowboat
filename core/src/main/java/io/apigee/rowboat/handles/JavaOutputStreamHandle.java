@@ -21,7 +21,9 @@
  */
 package io.apigee.rowboat.handles;
 
-import io.apigee.rowboat.modules.Constants;
+import io.apigee.rowboat.NodeRuntime;
+import io.apigee.rowboat.internal.Constants;
+import jdk.nashorn.api.scripting.JSObject;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -38,13 +40,14 @@ public class JavaOutputStreamHandle
 {
     private final OutputStream out;
 
-    public JavaOutputStreamHandle(OutputStream out)
+    public JavaOutputStreamHandle(OutputStream out, NodeRuntime runtime)
     {
+        super(runtime);
         this.out = out;
     }
 
     @Override
-    public int write(ByteBuffer buf, HandleListener listener, Object context)
+    public int write(ByteBuffer buf, Object context, JSObject onWriteComplete)
     {
         try {
             int len = buf.remaining();
@@ -56,11 +59,11 @@ public class JavaOutputStreamHandle
                 buf.get(tmp);
                 out.write(tmp);
             }
-            listener.onWriteComplete(len, true, context);
+            onWriteComplete.call(null, context, null, true);
             return len;
 
         } catch (IOException ioe) {
-            listener.onWriteError(Constants.EIO, true, context);
+            onWriteComplete.call(null, context, Constants.EIO, true);
             return 0;
         }
     }

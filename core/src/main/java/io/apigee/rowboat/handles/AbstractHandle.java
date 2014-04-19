@@ -21,7 +21,10 @@
  */
 package io.apigee.rowboat.handles;
 
+import io.apigee.rowboat.NodeRuntime;
+import io.apigee.rowboat.ScriptTask;
 import io.apigee.rowboat.Utils;
+import jdk.nashorn.api.scripting.JSObject;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -32,12 +35,19 @@ import java.nio.charset.Charset;
 
 public abstract class AbstractHandle
 {
-    public int write(ByteBuffer buf, HandleListener listener, Object context)
+    protected NodeRuntime runtime;
+
+    protected AbstractHandle(NodeRuntime runtime)
+    {
+        this.runtime = runtime;
+    }
+
+    public int write(ByteBuffer buf, Object context, JSObject onWriteComplete)
     {
         throw new IllegalStateException("Handle not capable of writing");
     }
 
-    public int write(String s, Charset cs, HandleListener listener, Object context)
+    public int write(String s, Charset cs, Object context, JSObject onWriteComplete)
     {
         // Convert the string to a buffer, which may involve some re-allocating and copying if the
         // string has many long multi-byte characters.
@@ -45,7 +55,7 @@ public abstract class AbstractHandle
         // chunk of data that it produces. This would optimize for allocating and copying ByteBuffers
         // but it would result in more "write" calls to the socket.
         ByteBuffer buf = Utils.stringToBuffer(s, cs);
-        return write(buf, listener, context);
+        return write(buf, context, onWriteComplete);
     }
 
     public int getWritesOutstanding()
@@ -53,7 +63,7 @@ public abstract class AbstractHandle
         return 0;
     }
 
-    public void startReading(HandleListener listener, Object context)
+    public void startReading(Object context, JSObject onReadComplete)
     {
         throw new IllegalStateException("Handle not capable of reading");
     }
@@ -64,4 +74,21 @@ public abstract class AbstractHandle
     }
 
     public abstract void close();
+
+    protected void submitReadCallback(final Object context, final String err,
+                                    final ByteBuffer buf, final JSObject onReadComplete)
+    {
+        runtime.enqueueTask(new ScriptTask() {
+            @Override
+            public void execute()
+            {
+                Object jsBuf = null;
+                if (buf != null) {
+                    // TODO!
+                    throw new AssertionError("We should create a buffer here!");
+                }
+                onReadComplete.call(null, context, err, jsBuf, false);
+            }
+        });
+    }
 }

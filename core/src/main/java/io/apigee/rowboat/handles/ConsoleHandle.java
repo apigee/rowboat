@@ -24,7 +24,8 @@ package io.apigee.rowboat.handles;
 import io.apigee.rowboat.NodeRuntime;
 import io.apigee.rowboat.Utils;
 import io.apigee.rowboat.internal.Charsets;
-import io.apigee.rowboat.modules.Constants;
+import io.apigee.rowboat.internal.Constants;
+import jdk.nashorn.api.scripting.JSObject;
 
 import java.io.Console;
 import java.io.EOFException;
@@ -50,7 +51,6 @@ public class ConsoleHandle
     private final Console console = System.console();
     private final PrintWriter writer = console.writer();
     private final Reader reader = console.reader();
-    private final NodeRuntime runtime;
 
     private volatile boolean reading;
     private Future<?> readTask;
@@ -62,33 +62,32 @@ public class ConsoleHandle
 
     public ConsoleHandle(NodeRuntime runtime)
     {
-        this.runtime = runtime;
+        super(runtime);
     }
 
     @Override
-    public int write(ByteBuffer buf, HandleListener listener, Object context)
+    public int write(ByteBuffer buf, Object context, JSObject onWriteComplete)
     {
         int len = buf.remaining();
         String str = Utils.bufferToString(buf, Charsets.UTF8);
         writer.print(str);
         writer.flush();
-        listener.onWriteComplete(len, true, context);
+        onWriteComplete.call(null, context, null, true);
         return len;
     }
 
     @Override
-    public int write(String s, Charset cs, HandleListener listener, Object context)
+    public int write(String s, Charset cs, Object context, JSObject onWriteComplete)
     {
-        // Not strictly correct but enough for now
         int len = s.length();
         writer.print(s);
         writer.flush();
-        listener.onWriteComplete(len, true, context);
+        onWriteComplete.call(null, context, null, true);
         return len;
     }
 
     @Override
-    public void startReading(final HandleListener listener, final Object context)
+    public void startReading(Object context, JSObject onReadComplete)
     {
         if (reading) {
             return;
@@ -101,12 +100,12 @@ public class ConsoleHandle
             @Override
             public void run()
             {
-                readLoop(listener, context);
+                readLoop(context, onReadComplete);
             }
         });
     }
 
-    protected void readLoop(HandleListener listener, Object context)
+    protected void readLoop(Object context, JSObject onReadComplete)
     {
         char[] readBuf = new char[READ_BUFFER_SIZE];
         try {
@@ -116,21 +115,25 @@ public class ConsoleHandle
                 if (count > 0) {
                     String rs = new String(readBuf, 0, count);
                     ByteBuffer buf = Utils.stringToBuffer(rs, Charsets.UTF8);
-                    listener.onReadComplete(buf, false, context);
+                    Object jsBuf = null;
+                    // TODO!
+                    throw new AssertionError("We should create a buffer here!");
+                    // TODO TODO
+                    //submitReadCallback(context, null, jsBuf, onReadComplete);
                 }
             }
             if (count < 0) {
-                listener.onReadError(Constants.EOF, false, context);
+                submitReadCallback(context, Constants.EOF, null, onReadComplete);
             }
 
         } catch (InterruptedIOException iee) {
             // Nothing special to do, since we were asked to stop reading
         } catch (EOFException eofe) {
-            listener.onReadError(Constants.EOF, false, context);
+            submitReadCallback(context, Constants.EOF, null, onReadComplete);
         } catch (IOException ioe) {
             String err =
                 ("Stream Closed".equalsIgnoreCase(ioe.getMessage()) ? Constants.EOF : Constants.EIO);
-            listener.onReadError(err, false, context);
+            submitReadCallback(context, err, null, onReadComplete);
         }
     }
 
