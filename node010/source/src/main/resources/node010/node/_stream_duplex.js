@@ -41,7 +41,8 @@ function Duplex(options) {
     return new Duplex(options);
 
   Readable.call(this, options);
-  Writable.call(this, options);
+  // Rowboat: hack because the instanceof check in the constructor doesn't seem to work the same way here
+  Writable.call(this, options, true);
 
   if (options && options.readable === false)
     this.readable = false;

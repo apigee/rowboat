@@ -42,7 +42,7 @@ module.exports.Stream = Stream;
 util.inherits(Stream, Referenceable);
 
 Stream.prototype.getWriteQueueSize = function() {
-  return handle.getWritesOutstanding();
+  return this.handle.getWritesOutstanding();
 };
 
 Stream.prototype.close = function(cb) {

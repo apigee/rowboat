@@ -236,6 +236,9 @@ Process.prototype.cwd = function() {
 
 Process.prototype.reallyExit = function(code) {
   var realCode = (code ? code : 0);
+  // This marks that we are having a normal exit
+  this._runtime.setExitCode(code);
+  // This stops script execution but the line above prevents a stack trace
   throw new NodeExitException(NodeExitException.Reason.NORMAL, realCode);
 };
 

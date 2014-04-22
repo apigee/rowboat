@@ -97,8 +97,9 @@ public class Node010Implementation
     public String[][] getInternalModules()
     {
         return new String[][] {
+            { "cares_wrap", R + "cares_wrap.js" },
             { "constants", R + "constants.js" },
-            {  "console_wrap", R + "console_wrap.js" },
+            { "console_wrap", R + "console_wrap.js" },
             { "evals", R + "evals.js" },
             { "fs", R + "fs.js" },
             { "process", R + "process.js" },

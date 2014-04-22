@@ -99,6 +99,7 @@ public class ScriptRunner
     private final  Selector                        selector;
     private        int                             timerSequence;
     private final  AtomicInteger                   pinCount      = new AtomicInteger(0);
+    private int    exitCode = -1;
 
     // Globals that are set up for the process
     protected JSObject          process;
@@ -208,6 +209,17 @@ public class ScriptRunner
 
     public ScriptContext getScriptContext() {
         return context;
+    }
+
+    /**
+     * Indicate that we will exit normally on the next exception caught.
+     */
+    public void setExitCode(int code) {
+       this.exitCode = code;
+    }
+
+    public int getExitCode() {
+        return exitCode;
     }
 
     @SuppressWarnings("unused")
@@ -570,6 +582,9 @@ public class ScriptRunner
             log.debug("I/O exception processing script: {}", ioe);
             status = new ScriptStatus(ioe);
         } catch (Throwable t) {
+            if (exitCode >= 0) {
+                return new ScriptStatus(exitCode);
+            }
             log.debug("Unexpected script error: {}", t);
             status = new ScriptStatus(t);
         }
@@ -591,6 +606,9 @@ public class ScriptRunner
                 log.debug("Script replacing exit code with {}", ee.getCode());
                 status = ee.getStatus();
             } catch (Throwable t) {
+                if (exitCode >= 0) {
+                    status = new ScriptStatus(exitCode);
+                }
                 // Many of the unit tests fire exceptions inside exit.
                 status = new ScriptStatus(t);
             }
@@ -677,6 +695,9 @@ public class ScriptRunner
             } catch (Throwable t) {
                 // All domain and process-wide error handling happened before we got here, so
                 // if we get a RhinoException here, then we know that it is fatal.
+                if (exitCode >= 0) {
+                    return new ScriptStatus(exitCode);
+                }
                 return new ScriptStatus(t);
             }
         }
@@ -702,6 +723,9 @@ public class ScriptRunner
     private boolean handleScriptException(Throwable se)
     {
         if (se instanceof NodeExitException) {
+            return false;
+        }
+        if (exitCode >= 0) {
             return false;
         }
 

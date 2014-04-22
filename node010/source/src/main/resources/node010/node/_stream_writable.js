@@ -106,10 +106,11 @@ function WritableState(options, stream) {
   this.buffer = [];
 }
 
-function Writable(options) {
+function Writable(options, isDuplex) {
   // Writable ctor is applied to Duplexes, though they're not
   // instanceof Writable, they're instanceof Readable.
-  if (!(this instanceof Writable) && !(this instanceof Stream.Duplex))
+  // TODO Rowboat this instanceof check is turning up false, and therefore we are ending up with lousy results.
+  if (!isDuplex && !(this instanceof Writable) && !(this instanceof Stream.Duplex))
     return new Writable(options);
 
   this._writableState = new WritableState(options, this);
