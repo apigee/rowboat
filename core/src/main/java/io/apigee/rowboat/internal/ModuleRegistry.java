@@ -69,6 +69,8 @@ public class ModuleRegistry
         "Module(require, module, exports, __filename, __dirname) { ";
     public static final String MODULE_WRAP_END =
         "\nreturn module.exports};";
+    public static final String SOURCE_URL =
+        "//#sourceURL=";
 
     private final HashMap<String, NodeModule>          javaModules         = new HashMap<>();
     private final HashMap<String, NodeModule>          internalJavaModules = new HashMap<>();
@@ -208,6 +210,9 @@ public class ModuleRegistry
                 if (wrap) {
                     src.append(MODULE_WRAP_END);
                 }
+                // Put a "#sourceURL" annotation on the script to make stack traces readable
+                src.append(SOURCE_URL);
+                src.append(name);
                 return ((Compilable)engine).compile(src.toString());
 
             } catch (ScriptException se) {

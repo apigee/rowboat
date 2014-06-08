@@ -5,20 +5,26 @@ function NodeScript() {
 }
 exports.NodeScript = NodeScript;
 
+function wrapCode(code, fileName) {
+  return code + '//#scriptURL=' + fileName;
+}
+
 NodeScript.runInThisContext = function(code, fileName) {
   var engine = process.getRuntime().getScriptEngine();
-  // TODO stash the file name somewhere so that we get stack traces
-  return engine.eval(code);
+  // Load using Nashorn built-in JS function, which causes stack traces to work
+  return load({ script:  code, name: fileName });
 };
 
 NodeScript.runInNewContext = function(code, sandbox, fileName) {
+  // Need to use the sandbox, so wrap the code manually
   var engine = process.getRuntime().getScriptEngine();
-  engine.eval(code, sandbox);
+  // TODO change if we want to use compiled class cache
+  engine.eval(wrapCode(code, fileName), sandbox);
 };
 
 function CompiledScript(code, fileName) {
   var engine = process.getRuntime().getScriptEngine();
-  this.compiled = engine.compile(code);
+  this.compiled = engine.compile(wrapCode(code, fileName));
 }
 
 NodeScript.compile = function(code, fileName) {

@@ -183,11 +183,12 @@ function _triremeMain(process, topScope) {
     global.GLOBAL = global;
     global.root = global;
 
-    // Bring in our internal Java-based buffer class now
-    process.binding('buffer');
-    // Bring in our internal JavaScript-based prototype functions for this class as well
+    // Buffers are complicated because we have to hack in to Nashorn to make them an array.
+    // This will cause the Java-based "InternalBufferModule" class to be initialized
+    //process.binding('buffer');
+    // Execute the code in "slowbuffer.js," which will wire in to the constructor for the Java class
     process.binding('slowbuffer');
-    // This the "real" buffer module, which should now work!
+    // Now require the regular "buffer.js," slightly modified from Node.
     global.Buffer = NativeModule.require('buffer').Buffer;
 
     process.domain = null;

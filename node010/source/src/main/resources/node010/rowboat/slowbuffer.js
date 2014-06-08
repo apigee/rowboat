@@ -1,15 +1,21 @@
+var Charsets = Java.type('io.apigee.rowboat.internal.Charsets');
 var JavaSlowBuffer = Java.type('io.apigee.rowboat.node010.classes.SlowBuffer');
+
 var SlowBuffer = process.binding('buffer').SlowBuffer;
 
 SlowBuffer._charsWritten = 0;
-SlowBuffer.byteLength = 0;
+
+SlowBuffer.byteLength = function(str, encoding) {
+  return JavaSlowBuffer.calculateByteLength(str, String(encoding));
+};
 
 var proto = {};
 
-function constructSlowBuffer(b) {
+function constructSlowBuffer(b, handle) {
   for (var n in proto) {
     b[n] = proto[n];
   }
+  b._handle = handle;
 }
 
 // This wires up the SlowBuffer java class so that it will always add our prototype functions in its constructor.
@@ -25,52 +31,56 @@ proto.copy = function(target, targetStart, start, end) {
 
 // These return strings
 proto.hexSlice = function(start, length) {
-  throw new Error('Not implemented');
+  return this._handle.slice(start, length, Charsets.NODE_HEX);
 };
 
 proto.utf8Slice = function(start, length) {
-  throw new Error('Not implemented');
+  return this._handle.slice(start, length, Charsets.UTF8);
 };
 
 proto.asciiSlice = function(start, length) {
-  throw new Error('Not implemented');
+  return this._handle.slice(start, length, Charsets.ASCII);
 };
 
 proto.binarySlice = function(start, length) {
-  throw new Error('Not implemented');
+  return this._handle.slice(start, length, Charsets.BINARY);
 };
 
 proto.base64Slice = function(start, length) {
-  throw new Error('Not implemented');
+  return this._handle.slice(start, length, Charsets.NODE_BASE64);
 };
 
 proto.ucs2Slice = function(start, length) {
-  throw new Error('Not implemented');
+  return this._handle.slice(start, length, Charsets.UCS2);
 };
+
+function updateCharsWritten(c) {
+  SlowBuffer._charsWritten = c;
+}
 
 // These decode the strings and copy the bytes
 proto.hexWrite = function(str, offset, length) {
-  throw new Error('Not implemented');
+  return this._handle.write(str, offset, length, Charsets.NODE_HEX, updateCharsWritten);
 };
 
 proto.utf8Write = function(str, offset, length) {
-  throw new Error('Not implemented');
+  return this._handle.write(str, offset, length, Charsets.UTF8, updateCharsWritten);
 };
 
 proto.asciiWrite = function(str, offset, length) {
-  throw new Error('Not implemented');
+  return this._handle.write(str, offset, length, Charsets.ASCII, updateCharsWritten);
 };
 
 proto.binaryWrite = function(str, offset, length) {
-  throw new Error('Not implemented');
+  return this._handle.write(str, offset, length, Charsets.BINARY, updateCharsWritten);
 };
 
 proto.base64Write = function(str, offset, length) {
-  throw new Error('Not implemented');
+  return this._handle.write(str, offset, length, Charsets.NODE_BASE64, updateCharsWritten);
 };
 
 proto.ucs2Write = function(str, offset, length) {
-  throw new Error('Not implemented');
+  return this._handle.write(str, offset, length, Charsets.UCS2, updateCharsWritten);
 };
 
 proto.readFloatLE = function(offset, noassert) {

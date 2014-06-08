@@ -290,6 +290,11 @@ Buffer.isBuffer = function isBuffer(b) {
   return b instanceof Buffer;
 };
 
+// Convert the buffer to a ByteBuffer that represents only its own content.
+// Returns an object that can only be passed to Java code
+Buffer.prototype.toJava = function() {
+  return JavaSlowBuffer.convertBuffer(this.parent, this.offset, this.length);
+};
 
 // Inspect
 Buffer.prototype.inspect = function inspect() {

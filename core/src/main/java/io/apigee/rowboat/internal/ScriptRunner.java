@@ -791,6 +791,8 @@ public class ScriptRunner
             }
             boolean timed = startTiming();
             try {
+                // We expect trireme.js to call us back the next time it has ticks
+                needTickCallback = false;
                 tickFromSpinner.call(process);
             } catch (Throwable t) {
                 boolean handled = handleScriptException(t);

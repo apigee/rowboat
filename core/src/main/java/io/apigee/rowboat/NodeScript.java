@@ -42,7 +42,7 @@ public class NodeScript
 
     private ModuleRegistry registry;
     private String source;
-    private final String[] args;
+    private String[] args;
     private ScriptRunner runner;
     private Object attachment;
     private Sandbox sandbox;
@@ -81,14 +81,12 @@ public class NodeScript
                 if (args.length <= (p + 1)) {
                     throw new NodeException("-e or --eval argument requires a script argument");
                 }
-                start += 2;
                 p++;
                 source = args[p];
                 break;
 
             case "-p":
             case "--print":
-                start++;
                 printEval = true;
                 break;
 
@@ -117,6 +115,7 @@ public class NodeScript
         String[] newArgs = new String[numArgs];
         newArgs[0] = ScriptRunner.EXECUTABLE_NAME;
         System.arraycopy(args, start, newArgs, 1, (numArgs - 1));
+        args = newArgs;
     }
 
     /**

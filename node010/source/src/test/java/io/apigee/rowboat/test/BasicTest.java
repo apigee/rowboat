@@ -44,12 +44,51 @@ public class BasicTest
         throws InterruptedException, ExecutionException, NodeException
     {
         NodeScript script = env.createScript("-e",
-                                             "console.log(\'Hello, World!\');process.exit(0);  ");
+                                             "console.log(\'Hello, World!\');");
         ScriptStatus stat = script.execute().get();
         assertEquals(0, stat.getExitCode());
     }
 
-    /*
+    @Test
+    public void testLoadStat()
+        throws InterruptedException, ExecutionException, NodeException
+    {
+        NodeScript script = env.createScript("-e",
+          "var assert = require('assert'); var fs = require('fs');" +
+          "var fn = './target/test-classes/tests/stattest.js';" +
+          "console.log('statSync(%s) = %j', fn, fs.statSync(fn));" +
+          "var nfn = '/does/not/exist';" +
+          "try { fs.statSync(nfn); } catch (e) { console.log('statSync(%s) threw %j', nfn, e); }" +
+          "fs.stat(fn, function(e, s) { console.log('stat(%s) = %j', fn, s); });" +
+          "fs.stat(nfn, function(e, s) { console.log('stat(%s) threw %j', nfn, e); });"
+        );
+        ScriptStatus stat = script.execute().get();
+        assertEquals(0, stat.getExitCode());
+    }
+
+    @Test
+    public void testLoadReaddir()
+        throws InterruptedException, ExecutionException, NodeException
+    {
+        NodeScript script = env.createScript("-e",
+          "var assert = require('assert'); var fs = require('fs');" +
+          "console.log('readdirSync(.) = %j', fs.readdirSync('.'));");
+        ScriptStatus stat = script.execute().get();
+        assertEquals(0, stat.getExitCode());
+    }
+
+    @Test
+    public void testLoadBuffer()
+        throws InterruptedException, ExecutionException, NodeException
+    {
+        NodeScript script = env.createScript("-e",
+          "var b1 = new Buffer('Foo');" +
+          "console.log(b1.toString());"
+        );
+        ScriptStatus stat = script.execute().get();
+        assertEquals(0, stat.getExitCode());
+    }
+
     @Test
     public void testModuleLoad()
         throws InterruptedException, ExecutionException, NodeException
@@ -57,6 +96,14 @@ public class BasicTest
         runTest("moduletest.js");
     }
 
+    @Test
+    public void testStat()
+        throws InterruptedException, ExecutionException, NodeException
+    {
+        runTest("stattest.js");
+    }
+
+    /*
     @Test
     public void testModuleLoadFromString()
         throws InterruptedException, ExecutionException, NodeException, IOException
@@ -542,18 +589,14 @@ public class BasicTest
     }
     */
 
-    /*
     private void runTest(String name)
         throws InterruptedException, ExecutionException, NodeException
     {
-        NodeScript script = env.createScript(name,
-                                             new File("./target/test-classes/tests/" + name),
-                                             null);
+        NodeScript script = env.createScript(new File("./target/test-classes/tests/" + name).getPath());
         ScriptStatus status = script.execute().get();
         assertEquals(0, status.getExitCode());
         script.close();
     }
-    */
 
     private static final class RejectInPolicy
         implements NetworkPolicy
