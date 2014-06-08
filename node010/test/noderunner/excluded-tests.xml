@@ -1,0 +1,25 @@
+<ExcludedTests>
+    <!-- NOT IMPLEMENTED YET -->
+    <Excluded>
+        <Name>test-https-client-reject.js</Name>
+        <Description>socket.authorized doesn't work the same way.</Description>
+    </Excluded>
+    <Excluded>
+        <Name>test-https-pfx.js</Name>
+        <Description>socket.authorized doesn't work the same way.</Description>
+    </Excluded>
+    <Excluded>
+        <Name>test-https-foafssl.js</Name>
+        <Description>Honestly I'm not sure what this is supposed to do.</Description>
+    </Excluded>
+    <Excluded>
+        <Name>test-https-localaddress.js</Name>
+        <Description>Relies on a specific local configuration.</Description>
+    </Excluded>
+    <Excluded>
+        <Name>test-https-strict.js</Name>
+        <Description>Not all CA validation mechanisms are supported yet.</Description>
+    </Excluded>
+
+    <!-- OTHER ISSUES -->
+</ExcludedTests>
