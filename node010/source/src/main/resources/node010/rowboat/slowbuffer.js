@@ -30,28 +30,28 @@ proto.copy = function(target, targetStart, start, end) {
 };
 
 // These return strings
-proto.hexSlice = function(start, length) {
-  return this._handle.slice(start, length, Charsets.NODE_HEX);
+proto.hexSlice = function(start, end) {
+  return this._handle.slice(start, end, Charsets.NODE_HEX);
 };
 
-proto.utf8Slice = function(start, length) {
-  return this._handle.slice(start, length, Charsets.UTF8);
+proto.utf8Slice = function(start, end) {
+  return this._handle.slice(start, end, Charsets.UTF8);
 };
 
-proto.asciiSlice = function(start, length) {
-  return this._handle.slice(start, length, Charsets.ASCII);
+proto.asciiSlice = function(start, end) {
+  return this._handle.slice(start, end, Charsets.ASCII);
 };
 
-proto.binarySlice = function(start, length) {
-  return this._handle.slice(start, length, Charsets.BINARY);
+proto.binarySlice = function(start, end) {
+  return this._handle.slice(start, end, Charsets.NODE_BINARY);
 };
 
-proto.base64Slice = function(start, length) {
-  return this._handle.slice(start, length, Charsets.NODE_BASE64);
+proto.base64Slice = function(start, end) {
+  return this._handle.slice(start, end, Charsets.BASE64);
 };
 
-proto.ucs2Slice = function(start, length) {
-  return this._handle.slice(start, length, Charsets.UCS2);
+proto.ucs2Slice = function(start, end) {
+  return this._handle.slice(start, end, Charsets.UCS2);
 };
 
 function updateCharsWritten(c) {

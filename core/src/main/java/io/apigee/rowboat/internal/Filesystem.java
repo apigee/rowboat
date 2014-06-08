@@ -86,18 +86,12 @@ public class Filesystem
 
     private final ScriptRunner runtime;
 
-    private Function<Throwable, Object> errorConverter;
     private final AtomicInteger nextFd = new AtomicInteger(FIRST_FD);
     private final ConcurrentHashMap<Integer, FileHandle> descriptors = new ConcurrentHashMap<>();
 
     public Filesystem(ScriptRunner runtime)
     {
         this.runtime = runtime;
-    }
-
-    @SuppressWarnings("unused")
-    public void setErrorConverter(Function<Throwable, Object> ec) {
-        this.errorConverter = ec;
     }
 
     private Path translatePath(String path)
@@ -154,7 +148,7 @@ public class Filesystem
                 });
             } catch (Throwable t) {
                 runtime.enqueueTask(() -> {
-                    resultHandler.apply(errorConverter.apply(t), null);
+                    resultHandler.apply(runtime.convertError(t), null);
                 });
             } finally {
                 runtime.unPin();
@@ -457,7 +451,7 @@ public class Filesystem
                              {
                                  NodeOSException ne = new NodeOSException(getErrorCode(t));
                                  runtime.enqueueTask(() -> {
-                                     cb.apply(errorConverter.apply(ne), null);
+                                     cb.apply(runtime.convertError(ne), null);
                                  });
                                  runtime.unPin();
                              }
@@ -527,7 +521,7 @@ public class Filesystem
                              {
                                  NodeOSException ne = new NodeOSException(getErrorCode(t));
                                  runtime.enqueueTask(() -> {
-                                     cb.apply(errorConverter.apply(ne), null);
+                                     cb.apply(runtime.convertError(ne), null);
                                  });
                                  runtime.unPin();
                              }

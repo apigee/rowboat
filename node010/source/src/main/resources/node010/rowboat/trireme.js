@@ -356,6 +356,7 @@ function _triremeMain(process, topScope) {
     // calls into process._tickCallback.
     // order is [length, index, depth]
     // Never write code like this without very good reason!
+    // Rowboat note: We give it out but we don't use it, since we use "_tickCallback".
     var infoBox = process._tickInfoBox;
     var length = 0;
     var index = 1;

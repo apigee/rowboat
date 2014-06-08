@@ -1,16 +1,21 @@
 var assert = require('assert');
-var util = require('util');
 var SlowBuffer = require('buffer').SlowBuffer;
 
 var buf1 = Buffer(1024);
 assert.equal(buf1.length, 1024);
+assert(buf1 instanceof Buffer);
 var buf1a = new Buffer(1024);
 assert.equal(buf1a.length, 1024);
+assert(buf1a instanceof Buffer);
+assert(Buffer.isBuffer(buf1));
 
 var slowBuf1 = SlowBuffer(1024);
 assert.equal(slowBuf1.length, 1024);
+assert(slowBuf1 instanceof SlowBuffer);
 var slowBuf1a = new SlowBuffer(1024);
 assert.equal(slowBuf1a.length, 1024);
+assert(slowBuf1a instanceof SlowBuffer);
+assert(Buffer.isBuffer(slowBuf1));
 
 var str2 = 'Foo the bar';
 var buf2 = new Buffer(str2, 'ascii');

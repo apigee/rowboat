@@ -89,6 +89,7 @@ public class Node010Implementation
 
             // Rowboat
             { "buffer", R + "buffer.js" },
+            { "string_decoder", R + "string_decoder.js" },
             { "vm", R + "vm.js" }
         };
     }
@@ -106,6 +107,7 @@ public class Node010Implementation
             { "referenceable", R + "referenceable.js" },
             { "slowbuffer", R + "slowbuffer.js" },
             { "stream_wrap", R + "stream_wrap.js" },
+            { "tcp_wrap", R + "tcp_wrap.js" },
             { "timer_wrap", R + "timer_wrap.js" }
         };
     }

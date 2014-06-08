@@ -22,9 +22,9 @@
 package io.apigee.rowboat.handles;
 
 import io.apigee.rowboat.NodeRuntime;
-import io.apigee.rowboat.Utils;
 import io.apigee.rowboat.internal.Charsets;
 import io.apigee.rowboat.internal.Constants;
+import io.apigee.rowboat.internal.Utils;
 import jdk.nashorn.api.scripting.JSObject;
 
 import java.io.Console;

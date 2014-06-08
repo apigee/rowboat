@@ -4,8 +4,11 @@ import io.apigee.rowboat.NetworkPolicy;
 import io.apigee.rowboat.NodeEnvironment;
 import io.apigee.rowboat.NodeException;
 import io.apigee.rowboat.NodeScript;
+import io.apigee.rowboat.ScriptFuture;
 import io.apigee.rowboat.ScriptStatus;
+import io.apigee.rowboat.ScriptStatusListener;
 import io.apigee.rowboat.SubprocessPolicy;
+import io.apigee.rowboat.internal.Utils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -103,7 +106,6 @@ public class BasicTest
         runTest("stattest.js");
     }
 
-    /*
     @Test
     public void testModuleLoadFromString()
         throws InterruptedException, ExecutionException, NodeException, IOException
@@ -111,9 +113,7 @@ public class BasicTest
         InputStream modIn = this.getClass().getResourceAsStream("/tests/moduleteststring.js");
         assertNotNull(modIn);
         String source = Utils.readStream(modIn);
-        NodeScript script = env.createScript("moduleteststring.js",
-                                             source,
-                                             null);
+        NodeScript script = env.createScript("-e", source);
         ScriptStatus stat = script.execute().get();
         assertEquals(0, stat.getExitCode());
     }
@@ -129,10 +129,8 @@ public class BasicTest
     public void testCancellation()
         throws InterruptedException, ExecutionException, NodeException
     {
-        NodeScript script = env.createScript("endless.js",
-                                             new File("./target/test-classes/tests/endless.js"),
-                                             null);
-        final ScriptFuture status = script.execute();
+        NodeScript script = env.createScript(new File("./target/test-classes/tests/endless.js").getPath());
+        ScriptFuture status = script.execute();
         status.setListener(new ScriptStatusListener()
         {
             @Override
@@ -156,9 +154,7 @@ public class BasicTest
     public void testTimeout()
         throws InterruptedException, ExecutionException, NodeException
     {
-        NodeScript script = env.createScript("endless.js",
-                                             new File("./target/test-classes/tests/endless.js"),
-                                             null);
+        NodeScript script = env.createScript("./target/test-classes/tests/endless.js");
         final ScriptFuture status = script.execute();
         status.setListener(new ScriptStatusListener()
         {
@@ -181,9 +177,7 @@ public class BasicTest
     public void testCancellationWithInterrupt()
         throws InterruptedException, ExecutionException, NodeException
     {
-        NodeScript script = env.createScript("endless.js",
-                                             new File("./target/test-classes/tests/endless.js"),
-                                             null);
+        NodeScript script = env.createScript("./target/test-classes/tests/endless.js");
         final ScriptFuture status = script.execute();
         status.setListener(new ScriptStatusListener()
         {
@@ -225,6 +219,7 @@ public class BasicTest
         runTest("builtinmoduletest.js");
     }
 
+    /*
     @Test
     public void testScriptTimeout()
         throws InterruptedException, ExecutionException, NodeException
@@ -552,6 +547,7 @@ public class BasicTest
         script.close();
         testEnv.close();
     }
+        */
 
     @Test
     public void testDefaultVersion()
@@ -566,9 +562,8 @@ public class BasicTest
     public void testInvalidNodeVersion()
         throws InterruptedException, ExecutionException, NodeException
     {
-        NodeScript script = env.createScript("test.js",
-                                             "console.log(\'Hello, World!\');process.exit(0);  ",
-                                             null);
+        NodeScript script = env.createScript("-e",
+                                             "console.log(\'Hello, World!\');process.exit(0);  ");
         script.setNodeVersion("0.0.0");
         try {
             script.execute().get();
@@ -581,13 +576,11 @@ public class BasicTest
     public void testWildcardNodeVersion()
         throws InterruptedException, ExecutionException, NodeException
     {
-        NodeScript script = env.createScript("test.js",
-                                             "console.log(\'Hello, World!\');process.exit(0);  ",
-                                             null);
+        NodeScript script = env.createScript("-e",
+                                             "console.log(\'Hello, World!\');process.exit(0);  ");
         script.setNodeVersion("x");
         script.execute().get();
     }
-    */
 
     private void runTest(String name)
         throws InterruptedException, ExecutionException, NodeException

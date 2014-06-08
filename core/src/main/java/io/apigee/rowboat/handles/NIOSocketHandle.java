@@ -90,7 +90,7 @@ public class NIOSocketHandle
     private void clientInit()
         throws IOException
     {
-        writeQueue = new ArrayDeque<QueuedWrite>();
+        writeQueue = new ArrayDeque<>();
         readBuffer = ByteBuffer.allocate(READ_BUFFER_SIZE);
         clientChannel.configureBlocking(false);
         setNoDelay(true);

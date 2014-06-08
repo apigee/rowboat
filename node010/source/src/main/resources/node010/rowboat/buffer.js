@@ -287,7 +287,7 @@ function allocPool() {
 
 // Static methods
 Buffer.isBuffer = function isBuffer(b) {
-  return b instanceof Buffer;
+  return ((b instanceof Buffer) || (b instanceof SlowBuffer));
 };
 
 // Convert the buffer to a ByteBuffer that represents only its own content.

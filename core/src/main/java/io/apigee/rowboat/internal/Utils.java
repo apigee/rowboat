@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright 2014 Apigee Corporation.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,9 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.apigee.rowboat;
-
-import io.apigee.rowboat.internal.Charsets;
+package io.apigee.rowboat.internal;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -183,136 +181,6 @@ public class Utils
         writeBuf.flip();
         return writeBuf;
     }
-
-    /*
-    /**
-     * Create a JavaScript Error object, which may be passed to a function that is expecting one.
-     *
-    public static Scriptable makeErrorObject(Context cx, Scriptable scope, String message)
-    {
-        return cx.newObject(scope, "Error", new Object[] { message });
-    }
-
-    /**
-     * Create a JavaScript Error object, which may be passed to a function that is expecting one.
-     *
-    public static Scriptable makeErrorObject(Context cx, Scriptable scope, String message, RhinoException re)
-    {
-        Scriptable e = cx.newObject(scope, "Error", new Object[] { message });
-        e.put("stack", e, re.getScriptStackTrace());
-        return e;
-    }
-
-    /**
-     * Create an exception that may be thrown from Java code, causing an exception and an Error object
-     * to be thrown in JavaScript.
-     *
-    public static RhinoException makeError(Context cx, Scriptable scope, String message)
-    {
-        return new JavaScriptException(makeErrorObject(cx, scope, message));
-    }
-
-    /**
-     * Create an exception that may be thrown from Java code, causing an exception and an Error object
-     * to be thrown in JavaScript.
-     *
-    public static RhinoException makeError(Context cx, Scriptable scope, String message, RhinoException re)
-    {
-        return new JavaScriptException(makeErrorObject(cx, scope, message, re));
-    }
-
-    /**
-     * Create a JavaScript Error object, which may be passed to a function that is expecting one.
-     *
-    public static Scriptable makeErrorObject(Context cx, Scriptable scope, String message, String code)
-    {
-        return makeErrorObject(cx, scope, message, code, null);
-    }
-
-    /**
-     * Create a JavaScript Error object, which may be passed to a function that is expecting one.
-     *
-     * @param code this will be used to set the "code" property of the new object.
-     *             "errno" will also be set if the code is a known error code from the "Constants" class.
-     * @param path this will be used to set the "path" property of the new object
-     *
-    public static Scriptable makeErrorObject(Context cx, Scriptable scope, String message, String code, String path)
-    {
-        Scriptable err = cx.newObject(scope, "Error", new Object[] { message });
-        err.put("code", err, code);
-        int errno = Constants.getErrno(code);
-        if (errno >= 0) {
-            err.put("errno", err, errno);
-        }
-        if (path != null) {
-            err.put("path", err, path);
-        }
-        return err;
-    }
-
-    /**
-     * Create an exception that may be thrown from Java code, causing an exception and an Error object
-     * to be thrown in JavaScript.
-     *
-    public static RhinoException makeError(Context cx, Scriptable scope, String message, String code)
-    {
-        return new JavaScriptException(makeErrorObject(cx, scope, message, code));
-    }
-
-    /**
-     * Create an exception that may be thrown from Java code, causing an exception and an Error object
-     * to be thrown in JavaScript.
-     *
-    public static RhinoException makeError(Context cx, Scriptable scope, NodeOSException e)
-    {
-        return new JavaScriptException(makeErrorObject(cx, scope, e));
-    }
-
-    /**
-     * Create a JavaScript Error object, which may be passed to a function that is expecting one.
-     *
-    public static Scriptable makeErrorObject(Context cx, Scriptable scope, NodeOSException e)
-    {
-        return makeErrorObject(cx, scope, e.getMessage(), e.getCode(), e.getPath());
-    }
-
-    /**
-     * Create a JavaScript RangeError object, which may be passed to a function that is expecting one.
-     *
-    public static RhinoException makeRangeError(Context cx, Scriptable scope, String message)
-    {
-        Scriptable err = cx.newObject(scope, "RangeError", new Object[] { message });
-        return new JavaScriptException(err);
-    }
-
-    /**
-     * Create a JavaScript TypeError object, which may be passed to a function that is expecting one.
-     *
-    public static RhinoException makeTypeError(Context cx, Scriptable scope, String message)
-    {
-        Scriptable err = cx.newObject(scope, "TypeError", new Object[] { message });
-        return new JavaScriptException(err);
-    }
-
-    /**
-     * Convert each value in the JavaScript object to a string array element. This is used to process
-     * an array of strings from JavaScript.
-     *
-    public static List<String> toStringList(Scriptable o)
-    {
-        ArrayList<String> ret = new ArrayList<String>();
-        for (Object id : o.getIds()) {
-            Object val;
-            if (id instanceof Integer) {
-                val = o.get((Integer)id, o);
-            } else {
-                val = o.get((String)id, o);
-            }
-            ret.add(Context.toString(val));
-        }
-        return ret;
-    }
-    */
 
     /**
      * Concatenate two byte buffers into one, updating their position. This method is very flexible

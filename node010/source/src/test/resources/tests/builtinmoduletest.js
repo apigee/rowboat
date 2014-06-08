@@ -1,4 +1,4 @@
-var builtin = require('builtin');
+var builtin = require('./builtin');
 var assert = require('assert');
 
 assert(builtin.builtin);

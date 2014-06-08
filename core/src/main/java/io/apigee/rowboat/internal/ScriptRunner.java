@@ -32,8 +32,6 @@ import io.apigee.rowboat.ScriptStatus;
 import io.apigee.rowboat.ScriptTask;
 import io.apigee.rowboat.binding.DefaultScriptObject;
 import jdk.nashorn.api.scripting.JSObject;
-import jdk.nashorn.api.scripting.ScriptObjectMirror;
-import jdk.nashorn.api.scripting.ScriptUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,16 +42,13 @@ import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
-import javax.script.SimpleScriptContext;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -63,6 +58,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * This class actually runs the script.
@@ -104,9 +101,11 @@ public class ScriptRunner
     // Globals that are set up for the process
     protected JSObject          process;
     protected JSObject          submitTick;
-    private   JSObject          handleFatal;
-    private   JSObject          tickFromSpinner;
-    private   JSObject          immediateCallback;
+    private   Function<Object, Boolean> handleFatal;
+    private   Runnable          tickFromSpinner;
+    private   Runnable          immediateCallback;
+    private Function<Throwable, Object> errorConverter;
+
     //private Buffer.BufferModuleImpl buffer;
     private String              workingDirectory;
     private Object              parentProcess;
@@ -286,21 +285,21 @@ public class ScriptRunner
     }
 
     @SuppressWarnings("unused")
-    public void setHandleFatal(JSObject h) {
+    public void setHandleFatal(Function<Object, Boolean> h) {
         this.handleFatal = h;
     }
 
     @SuppressWarnings("unused")
-    public JSObject getHandleFatal() {
+    public Function<Object, Boolean> getHandleFatal() {
         return handleFatal;
     }
 
     @SuppressWarnings("unused")
-    public void setTickFromSpinner(JSObject t) {
+    public void setTickFromSpinner(Runnable t) {
         this.tickFromSpinner = t;
     }
 
-    public JSObject getTickFromSpinner() {
+    public Runnable getTickFromSpinner() {
         return tickFromSpinner;
     }
 
@@ -329,12 +328,12 @@ public class ScriptRunner
     }
 
     @SuppressWarnings("unused")
-    public void setImmediateCallback(JSObject c) {
+    public void setImmediateCallback(Runnable c) {
         this.immediateCallback = c;
     }
 
     @SuppressWarnings("unused")
-    public JSObject getImmediateCallback() {
+    public Runnable getImmediateCallback() {
         return immediateCallback;
     }
 
@@ -346,6 +345,16 @@ public class ScriptRunner
     @SuppressWarnings("unused")
     public int getUmask() {
         return umask;
+    }
+
+    @SuppressWarnings("unused")
+    public void setErrorConverter(Function<Throwable, Object> ec) {
+        this.errorConverter = ec;
+    }
+
+    public Object convertError(Throwable t)
+    {
+        return errorConverter.apply(t);
     }
 
     /**
@@ -432,9 +441,10 @@ public class ScriptRunner
      * outside the context of the "TimerWrap" module then we need to check for synchronization, add an
      * assertion check, or synchronize the timer queue.
      */
-    public Activity createTimer(long delay, boolean repeating, long repeatInterval, ScriptTask task)
+    public Activity createTimer(long delay, boolean repeating, long repeatInterval,
+                                Consumer<Object> task, Object target)
     {
-        Task t = new Task(task);
+        Task t = new Task(() -> task.accept(target));
         long timeout = System.currentTimeMillis() + delay;
         int seq = timerSequence++;
 
@@ -704,22 +714,6 @@ public class ScriptRunner
         return ScriptStatus.OK;
     }
 
-    private Object makeError(Throwable t)
-    {
-        // TODO something!
-        throw new RuntimeException("This would have been an error!", t);
-        /*
-        if ((re instanceof JavaScriptException) &&
-            (((JavaScriptException)re).getValue() instanceof Scriptable)) {
-            return (Scriptable)((JavaScriptException)re).getValue();
-        } else if (re instanceof EcmaError) {
-            return Utils.makeErrorObject(cx, scope, ((EcmaError) re).getErrorMessage(), re);
-        } else {
-            return Utils.makeErrorObject(cx, scope, re.getMessage(), re);
-        }
-        */
-    }
-
     private boolean handleScriptException(Throwable se)
     {
         if (se instanceof NodeExitException) {
@@ -740,8 +734,8 @@ public class ScriptRunner
             log.debug("Handling fatal exception {}", se);
         }
 
-        Object error = makeError(se);
-        boolean handled = ((Boolean)handleFatal.call(process, error)).booleanValue();
+        Object error = convertError(se);
+        boolean handled = handleFatal.apply(error);
         if (log.isDebugEnabled()) {
             log.debug("Handled = {}", handled);
         }
@@ -793,7 +787,7 @@ public class ScriptRunner
             try {
                 // We expect trireme.js to call us back the next time it has ticks
                 needTickCallback = false;
-                tickFromSpinner.call(process);
+                tickFromSpinner.run();
             } catch (Throwable t) {
                 boolean handled = handleScriptException(t);
                 if (!handled) {
@@ -818,7 +812,8 @@ public class ScriptRunner
             }
             boolean timed = startTiming();
             try {
-                immediateCallback.call(process);
+                // Timer module will automatically clear the flag
+                immediateCallback.run();
             } catch (Throwable t) {
                 boolean handled = handleScriptException(t);
                 if (!handled) {
@@ -961,14 +956,12 @@ public class ScriptRunner
 
         Object result;
         try {
-            //context.setAttribute(ScriptEngine.FILENAME, modName + ".js", ScriptContext.ENGINE_SCOPE);
             script.eval();
         } catch (ScriptException se) {
             throw new NodeException("Error initializing module: " + se, se);
         }
 
         try {
-            //context.setAttribute(ScriptEngine.FILENAME, modName + ".js", ScriptContext.ENGINE_SCOPE);
             return invocableEngine.invokeFunction('_' + modName + "Module", require, module, exports, fileName);
         } catch (ScriptException|NoSuchMethodException e) {
             throw new NodeException(e);

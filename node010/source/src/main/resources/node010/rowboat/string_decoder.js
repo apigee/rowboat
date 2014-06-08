@@ -19,26 +19,35 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+/*
+ * This is a version of string_decoder that works with native Java code. This is a bit of performance-
+ * critical code in Node and this version should be much more efficient and also simpler.
+ */
 
-function Referenceable() {
-  this.referenced = false;
+var DecoderWrap = Java.type('io.apigee.rowboat.internal.StringDecoder');
+
+var StringDecoder = exports.StringDecoder = function(enc) {
+  var encoding = (enc || 'utf8');
+  if (!DecoderWrap.isEncoding(String(encoding))) {
+    throw new Error('Unknown encoding: ' + encoding);
+  }
+
+  this.decoder = new DecoderWrap(encoding);
+  this.encoding = encoding;
+};
+
+function toBuf(o) {
+  if (typeof o === 'string') {
+    return new Buffer(o);
+  }
+  return o;
 }
-module.exports.Referenceable = Referenceable;
 
-Referenceable.prototype.close = function() {
-  unref();
+StringDecoder.prototype.write = function(buffer) {
+  return this.decoder.decode(toBuf(buffer).toJava());
 };
 
-Referenceable.prototype.ref = function() {
-  if (!this.referenced) {
-    process.getRuntime().pin();
-    this.referenced = true;
-  }
-};
-
-Referenceable.prototype.unref = function() {
-  if (this.referenced) {
-    process.getRuntime().unPin();
-    this.referenced = false;
-  }
+StringDecoder.prototype.end = function(buf) {
+  var buffer = (buf ? buf : null);
+  return this.decoder.end(toBuf(buf).toJava());
 };

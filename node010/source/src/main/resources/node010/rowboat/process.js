@@ -27,10 +27,12 @@
 
 var System =                 Java.type('java.lang.System');
 
+var Constants =              Java.type('io.apigee.rowboat.internal.Constants');
 var ConsoleHandle =          Java.type('io.apigee.rowboat.handles.ConsoleHandle');
 var JavaInputStreamHandle  = Java.type('io.apigee.rowboat.handles.JavaInputStreamHandle');
 var JavaOutputStreamHandle = Java.type('io.apigee.rowboat.handles.JavaOutputStreamHandle');
 var NodeExitException =      Java.type('io.apigee.rowboat.internal.NodeExitException');
+var NodeOSException =        Java.type('io.apigee.rowboat.internal.NodeOSException');
 var Version =                Java.type('io.apigee.rowboat.internal.Version');
 
 var NANO = 100000000;
@@ -51,6 +53,8 @@ function Process(runtime) {
   this.title = TITLE;
   this.platform = PLATFORM;
   this.execPath = EXECUTABLE;
+
+  runtime.setErrorConverter(convertJavaException);
 
   // Set up stuff that comes from the runtime environment
   var script = runtime.getScriptObject();
@@ -119,7 +123,7 @@ module.exports.createProcess = function(runtime) {
 
 Process.prototype.getRuntime = function() {
   return this._runtime;
-}
+};
 
 Process.prototype.getEnv = function() {
   if (this._env) {
@@ -268,7 +272,7 @@ Process.prototype.setNeedImmediateCallback = function(need) {
 };
 
 Process.prototype.getNeedImmediateCallback = function() {
-  return this._runtime.getNeedImmediateCallback();
+  return this._runtime.isNeedImmediateCallback();
 };
 
 Process.prototype.setImmediateCallback = function(need) {
@@ -322,3 +326,35 @@ Process.prototype.hrtime = function(time) {
   ret[1] = nanos % NANO;
   return ret;
 };
+
+/*
+ * An operation threw an exception but we can't convert it to a proper Error object in Java, so do
+ * it right here. NodeOSException is used by Java code to return proper errors containing paths.
+ */
+function convertJavaException(ne, path) {
+  var e = new Error(ne.getMessage());
+  if (ne instanceof NodeOSException) {
+    e.code = ne.getCode();
+    var errno = Constants.getErrno(ne.getCode());
+    if (errno >= 0) {
+      e.errno = errno;
+    }
+    if (path) {
+      e.path = path;
+    }
+  }
+  return e;
+}
+Process.prototype.convertJavaException = convertJavaException;
+
+/*
+ * Given a NodeOSException thrown by Java code, figure out the "errno" in it,
+ * if any.
+ */
+function getJavaErrno(ne) {
+  if (ne instanceof NodeOSException) {
+    return ne.getCode();
+  }
+  return Constants.EIO;
+}
+Process.prototype.getJavaErrno = getJavaErrno();

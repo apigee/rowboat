@@ -59,27 +59,6 @@ Stats.prototype.isCharacterDevice = no;
 Stats.prototype.isFIFO = no;
 Stats.prototype.isSocket = no;
 
-/*
- * An operation threw an exception but we can't convert it to a proper Error object in Java, so do
- * it right here. NodeOSException is used by Java code to return proper errors containing paths.
- */
-function convertError(ne, path) {
-  var e = new Error(ne.getMessage());
-  if (ne instanceof NodeOSException) {
-    e.code = ne.getCode();
-    var errno = Constants.getErrno(ne.getCode());
-    if (errno >= 0) {
-      e.errno = errno;
-    }
-    if (path) {
-      e.path = path;
-    }
-  }
-  return e;
-}
-// Java calls this function too in the async path
-binding.setErrorConverter(convertError);
-
 fs.stat = function(p, cb) {
   var path = String(p);
   if (cb) {
@@ -97,7 +76,7 @@ fs.stat = function(p, cb) {
     try {
       return new Stats(binding.stat(path, false));
     } catch (e) {
-      throw convertError(e, path);
+      throw process.convertJavaException(e, path);
     }
   }
 };
@@ -115,7 +94,7 @@ fs.fstat = function(fd, cb) {
     try {
       return new Stats(binding.fstat(fd));
     } catch (e) {
-      throw convertError(e, path);
+      throw process.convertJavaException(e, path);
     }
   }
 };
@@ -134,7 +113,7 @@ fs.lstat = function(p, cb) {
     try {
       return new Stats(binding.stat(path, true));
     } catch (e) {
-      throw convertError(e, path);
+      throw process.convertJavaException(e, path);
     }
   }
 };
@@ -153,7 +132,7 @@ fs.open = function(p, flags, mode, cb) {
     try {
       return binding.open(path, flags, mode);
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -168,7 +147,7 @@ fs.close = function(fd, cb) {
     try {
       binding.close(fd);
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -195,7 +174,7 @@ fs.read = function(fd, buffer, offset, length, position, cb) {
   try {
     return binding.readSync(fd, buffer.toJava(), offset, length, position);
   } catch (e) {
-    throw convertError(e);
+    throw process.convertJavaException(e);
   }
 };
 
@@ -219,9 +198,9 @@ fs.write = function(fd, buffer, offset, length, position, cb) {
   }
 
   try {
-    return binding.writeSync(fd, buffer, offset, length, position);
+    return binding.writeSync(fd, buffer.toJava(), offset, length, position);
   } catch (e) {
-    throw convertError(e);
+    throw process.convertJavaException(e);
   }
 };
 
@@ -235,7 +214,7 @@ fs.rename = function(oldPath, newPath, cb) {
     try {
       binding.rename(String(oldPath), String(newPath));
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -250,7 +229,7 @@ fs.ftruncate = function(fd, len, cb) {
     try {
       binding.ftruncate(fd, len);
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -265,7 +244,7 @@ fs.rmdir = function(path, cb) {
     try {
       binding.rmdir(String(path));
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -280,7 +259,7 @@ fs.fdatasync = function(fd, cb) {
     try {
       binding.doSync(fd, false);
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -295,7 +274,7 @@ fs.fsync = function(fd, cb) {
     try {
       binding.doSync(fd, true);
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -310,7 +289,7 @@ fs.mkdir = function(path, mode, cb) {
     try {
       binding.mkdir(String(path), mode);
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -326,7 +305,7 @@ fs.readdir = function(path, cb) {
   try {
     return Java.from(binding.readdir(String(path)));
   } catch (e) {
-    throw convertError(e);
+    throw process.convertJavaException(e);
   }
 };
 
@@ -341,7 +320,7 @@ fs.readlink = function(path, cb) {
   try {
     return binding.readlink(String(path));
   } catch (e) {
-    throw convertError(e);
+    throw process.convertJavaException(e);
   }
 };
 
@@ -355,7 +334,7 @@ fs.symlink = function(dest, path, type, cb) {
     try {
       binding.symlink(String(dest), String(path));
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -369,7 +348,7 @@ fs.link = function(src, dest, cb) {
     try {
       binding.link(String(dest), String(path));
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -383,7 +362,7 @@ fs.unlink = function(path, cb) {
     try {
       binding.unlink(String(path));
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -397,7 +376,7 @@ fs.fchmod = function(fd, mode, cb) {
     try {
       binding.fchmod(fd, mode);
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -411,7 +390,7 @@ fs.chmod = function(path, mode, cb) {
     try {
       binding.chmod(String(path), mode);
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -425,7 +404,7 @@ fs.fchown = function(fd, uid, gid, cb) {
     try {
       binding.fchown(fd, String(uid), String(gid));
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -439,7 +418,7 @@ fs.chown = function(path, uid, gid, cb) {
     try {
       binding.chown(String(path), String(uid), String(gid));
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -453,7 +432,7 @@ fs.utimes = function(path, atime, mtime, cb) {
     try {
       binding.utimes(String(path), atime, mtime);
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };
@@ -467,7 +446,7 @@ fs.futimes = function(fd, atime, mtime, cb) {
     try {
       binding.futimes(fd, atime, mtime);
     } catch (e) {
-      throw convertError(e);
+      throw process.convertJavaException(e);
     }
   }
 };

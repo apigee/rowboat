@@ -23,7 +23,7 @@ package io.apigee.rowboat.handles;
 
 import io.apigee.rowboat.NodeRuntime;
 import io.apigee.rowboat.ScriptTask;
-import io.apigee.rowboat.Utils;
+import io.apigee.rowboat.internal.Utils;
 import jdk.nashorn.api.scripting.JSObject;
 
 import java.nio.ByteBuffer;

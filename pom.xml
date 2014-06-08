@@ -43,6 +43,7 @@
   <modules>
     <module>core</module>
     <module>node010</module>
+    <module>nodetests</module>
   </modules>
    
   <dependencyManagement>

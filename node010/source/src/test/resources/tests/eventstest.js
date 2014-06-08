@@ -11,15 +11,13 @@ FakeEmitter.prototype.foo = function() { return 'bar'; };
 
 var emitter = new FakeEmitter();
 
-assert.ok(emitter instanceof EventEmitter);
-
 assert.equal(emitter.foo(), 'bar');
 
 assert.equal(emitter.listeners('someEvent').length, 0);
 
 emitter.on('someEvent', function() {
     console.log('someEvent:', arguments);
-})
+});
 
 assert.equal(emitter.listeners('someEvent').length, 1);
 
