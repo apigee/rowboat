@@ -582,6 +582,13 @@ public class BasicTest
         script.execute().get();
     }
 
+    @Test
+    public void testDeprecation()
+        throws InterruptedException, ExecutionException, NodeException
+    {
+        runTest("deprecationtest.js");
+    }
+
     private void runTest(String name)
         throws InterruptedException, ExecutionException, NodeException
     {

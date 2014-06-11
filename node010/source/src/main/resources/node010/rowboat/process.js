@@ -63,7 +63,7 @@ function Process(runtime) {
   }
   this._print_eval = script.isPrintEval();
   this._forceRepl = script.isForceRepl();
-  this.throwDeprecation = !script.isNoDeprecation();
+  this.noDeprecation = script.isNoDeprecation();
   this.traceDeprecation = script.isTraceDeprecation();
 
   Object.defineProperty(this, "env", {

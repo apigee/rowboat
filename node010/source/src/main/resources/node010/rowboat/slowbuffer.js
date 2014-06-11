@@ -21,6 +21,12 @@ function constructSlowBuffer(b, handle) {
 // This wires up the SlowBuffer java class so that it will always add our prototype functions in its constructor.
 JavaSlowBuffer.setInternalConstructor(SlowBuffer, constructSlowBuffer);
 
+// Convert the buffer to a ByteBuffer that represents only its own content.
+// Returns an object that can only be passed to Java code
+proto.toJava = function() {
+  return JavaSlowBuffer.convertBuffer(this, 0, this.length);
+};
+
 proto.fill = function(value, start, end) {
   throw new Error('Not implemented');
 };

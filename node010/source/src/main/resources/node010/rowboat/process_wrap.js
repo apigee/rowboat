@@ -19,18 +19,5 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.apigee.rowboat.handles;
 
-import java.nio.ByteBuffer;
-
-/**
- * Classes that rely on being notified when handle tasks complete implement this interface.
- */
-
-public interface HandleListener
-{
-    void onWriteComplete(int bytesWritten, boolean inScriptThread, Object context);
-    void onWriteError(String err, boolean inScriptThread, Object context);
-    void onReadComplete(ByteBuffer buf, boolean inScriptThread, Object context);
-    void onReadError(String err, boolean inScriptThread, Object context);
-}
+// TODO!

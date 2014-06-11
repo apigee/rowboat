@@ -21,14 +21,12 @@
  */
 package io.apigee.rowboat.handles;
 
-/**
- * Specialization of HandleListener for network events.
- */
+import java.nio.ByteBuffer;
 
-public interface NetworkHandleListener
-    extends HandleListener
+/**
+ * This functional interface is used to pass callbacks for read completion between Java and JavaScript.
+ */
+public interface ReadCompleteCallback
 {
-    void onConnection(boolean inScriptThread, AbstractHandle handle, Object context);
-    void onConnectComplete(boolean inScriptThread, Object context);
-    void onConnectError(String err, boolean inScriptThread, Object context);
+    void complete(Object request, Object error, ByteBuffer buf);
 }

@@ -107,9 +107,10 @@ Stream.prototype.readStop = function() {
   this.handle.stopReading();
 };
 
-function onReadComplete(self, err, buf) {
+function onReadComplete(self, err, javaBuf) {
   if (self.onRead) {
     process.errno = (err ? err : null);
+    var buf = (javaBuf ? Buffer.fromJava(javaBuf) : undefined);
     self.onread(buf, 0, buf.length);
   }
 }

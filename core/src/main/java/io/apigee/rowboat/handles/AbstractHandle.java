@@ -42,12 +42,12 @@ public abstract class AbstractHandle
         this.runtime = runtime;
     }
 
-    public int write(ByteBuffer buf, Object context, JSObject onWriteComplete)
+    public int write(ByteBuffer buf, Object context, WriteCompleteCallback cb)
     {
         throw new IllegalStateException("Handle not capable of writing");
     }
 
-    public int write(String s, Charset cs, Object context, JSObject onWriteComplete)
+    public int write(String s, Charset cs, Object context, WriteCompleteCallback onWriteComplete)
     {
         // Convert the string to a buffer, which may involve some re-allocating and copying if the
         // string has many long multi-byte characters.
@@ -63,7 +63,7 @@ public abstract class AbstractHandle
         return 0;
     }
 
-    public void startReading(Object context, JSObject onReadComplete)
+    public void startReading(Object context, ReadCompleteCallback cb)
     {
         throw new IllegalStateException("Handle not capable of reading");
     }
@@ -75,20 +75,9 @@ public abstract class AbstractHandle
 
     public abstract void close();
 
-    protected void submitReadCallback(final Object context, final String err,
-                                    final ByteBuffer buf, final JSObject onReadComplete)
+    protected void submitReadCallback(Object context, String err,
+                                      ByteBuffer buf, ReadCompleteCallback cb)
     {
-        runtime.enqueueTask(new ScriptTask() {
-            @Override
-            public void execute()
-            {
-                Object jsBuf = null;
-                if (buf != null) {
-                    // TODO!
-                    throw new AssertionError("We should create a buffer here!");
-                }
-                onReadComplete.call(null, context, err, jsBuf, false);
-            }
-        });
+        runtime.enqueueTask(() -> cb.complete(context, err, buf));
     }
 }

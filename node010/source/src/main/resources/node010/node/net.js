@@ -861,6 +861,8 @@ function afterConnect(status, handle, req, readable, writable) {
     return;
   }
 
+  debug('afterConnect: self._handle = ' + self._handle);
+  debug('afterConnect: self = ' + self);
   assert(handle === self._handle, 'handle != self._handle');
 
   debug('afterConnect');
@@ -921,6 +923,9 @@ function Server(/* [ options, ] listener */) {
 
   this._connections = 0;
 
+  /*
+   * ROWBOAT: This is triggering some JavaScript type of error in util.deprecate. Not sure why now.
+   *
   Object.defineProperty(this, 'connections', {
     get: util.deprecate(function() {
 
@@ -930,8 +935,22 @@ function Server(/* [ options, ] listener */) {
       return self._connections;
     }, 'connections property is deprecated. Use getConnections() method'),
     set: util.deprecate(function(val) {
-      return (self._connections = val);
+       self._connections = val;
     }, 'connections property is deprecated. Use getConnections() method'),
+    configurable: true, enumerable: true
+  });
+  */
+
+  Object.defineProperty(this, 'connections', {
+    get: function() {
+       if (self._usingSlaves) {
+        return null;
+      }
+      return self._connections;
+    },
+    set: function(val) {
+      return (self._connections = val);
+    },
     configurable: true, enumerable: true
   });
 

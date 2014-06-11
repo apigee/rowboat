@@ -1,6 +1,8 @@
 var assert = require('assert');
 var SlowBuffer = require('buffer').SlowBuffer;
 
+var ByteBuffer = Java.type('java.nio.ByteBuffer');
+
 var buf1 = Buffer(1024);
 assert.equal(buf1.length, 1024);
 assert(buf1 instanceof Buffer);
@@ -67,6 +69,23 @@ var testCount = new Buffer(32);
 testCount.write('Foo the bar');
 assert.equal(11, Buffer._charsWritten);
 
-console.log('Buffer tests completed successfully');
+// Test Java-JS integration
+// Should be able to convert buffers into NIO ByteBuffers
+var javaTestBuffer = new Buffer('Hello, World!', 'ascii');
+assert.equal(javaTestBuffer.length, 13);
+var nioBuffer = javaTestBuffer.toJava();
+assert.equal(nioBuffer.remaining(), 13);
+
+var slowTestBuffer = new SlowBuffer(10);
+assert.equal(slowTestBuffer.length, 10);
+var slowNioBuffer = slowTestBuffer.toJava();
+assert.equal(slowNioBuffer.remaining(), 10);
+
+// Should be able to turn NIO byte buffers into normal buffers
+var newJavaBuffer = Buffer.fromJava(nioBuffer);
+console.log('Converted java buffer is %s', newJavaBuffer.toString('ascii'));
+assert.equal(newJavaBuffer.toString('ascii'), 'Hello, World!');
+
+
 
 

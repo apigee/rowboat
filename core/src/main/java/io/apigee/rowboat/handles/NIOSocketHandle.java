@@ -26,13 +26,13 @@ import io.apigee.rowboat.NodeRuntime;
 import io.apigee.rowboat.internal.NodeOSException;
 import io.apigee.rowboat.internal.SelectorHandler;
 import io.apigee.rowboat.internal.Constants;
-import jdk.nashorn.api.scripting.JSObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.BindException;
 import java.net.ConnectException;
+import java.net.Inet6Address;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
@@ -41,6 +41,9 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Node's own script modules use this internal module to implement the guts of async TCP.
@@ -61,9 +64,10 @@ public class NIOSocketHandle
     private int                     queuedBytes;
     private ByteBuffer              readBuffer;
     private boolean                 writeReady;
-    private NetworkHandleListener   listener;
-    private JSObject                onRead;
-    private Object                  listenerCtx;
+    private ReadCompleteCallback    onRead;
+    private Object                  onReadCtx;
+    private Consumer<AbstractHandle> onConnection;
+    private Consumer<Object>        onConnectComplete;
 
     public NIOSocketHandle(NodeRuntime runtime)
     {
@@ -146,7 +150,7 @@ public class NIOSocketHandle
         }
     }
 
-    public void listen(int backlog, NetworkHandleListener listener, Object context)
+    public void listen(int backlog, Consumer<AbstractHandle> cb)
         throws NodeOSException
     {
         if (boundAddress == null) {
@@ -158,8 +162,7 @@ public class NIOSocketHandle
             throw new NodeOSException(Constants.EINVAL);
         }
 
-        this.listener = listener;
-        this.listenerCtx = context;
+        this.onConnection = cb;
         if (log.isDebugEnabled()) {
             log.debug("Server listening on {} with backlog {}",
                       boundAddress, backlog);
@@ -224,7 +227,7 @@ public class NIOSocketHandle
                         try {
                             runtime.registerCloseable(child);
                             NIOSocketHandle sock = new NIOSocketHandle(runtime, child);
-                            listener.onConnection(true, sock, listenerCtx);
+                            onConnection.accept(sock);
                             success = true;
                         } finally {
                             if (!success) {
@@ -248,16 +251,16 @@ public class NIOSocketHandle
     }
 
     @Override
-    public int write(ByteBuffer buf, Object context, JSObject onWriteComplete)
+    public int write(ByteBuffer buf, Object context, WriteCompleteCallback cb)
     {
-        QueuedWrite qw = new QueuedWrite(buf, context, onWriteComplete);
+        QueuedWrite qw = new QueuedWrite(buf, context, cb);
         offerWrite(qw);
         return qw.length;
     }
 
-    public void shutdown(Object context, JSObject onWriteComplete)
+    public void shutdown(Object context, WriteCompleteCallback cb)
     {
-        QueuedWrite qw = new QueuedWrite(null, context, onWriteComplete);
+        QueuedWrite qw = new QueuedWrite(null, context, cb);
         qw.shutdown = true;
         offerWrite(qw);
     }
@@ -282,7 +285,7 @@ public class NIOSocketHandle
                 writeReady = false;
                 queueWrite(qw);
             } else {
-                qw.onWriteComplete.call(null, qw.context, null, true);
+                qw.onComplete.complete(qw.context, null, true);
             }
         } else {
             queueWrite(qw);
@@ -303,11 +306,11 @@ public class NIOSocketHandle
     }
 
     @Override
-    public void startReading(Object context, JSObject onReadComplete)
+    public void startReading(Object context, ReadCompleteCallback cb)
     {
         if (!readStarted) {
-            this.onRead = onReadComplete;
-            this.listenerCtx = context;
+            this.onRead = cb;
+            this.onReadCtx = context;
             addInterest(SelectionKey.OP_READ);
             readStarted = true;
         }
@@ -322,7 +325,7 @@ public class NIOSocketHandle
         }
     }
 
-    public void connect(String host, int port, NetworkHandleListener listener, Object context)
+    public void connect(String host, int port, Consumer<Object> cb)
         throws NodeOSException
     {
         boolean success = false;
@@ -347,8 +350,7 @@ public class NIOSocketHandle
             runtime.registerCloseable(newChannel);
             clientChannel = newChannel;
             clientInit();
-            this.listener = listener;
-            this.listenerCtx = context;
+            this.onConnectComplete = cb;
             newChannel.connect(targetAddress);
             selKey = newChannel.register(runtime.getSelector(),
                                                     SelectionKey.OP_CONNECT,
@@ -405,20 +407,20 @@ public class NIOSocketHandle
             if (log.isDebugEnabled()) {
                 log.debug("Client {} connected", clientChannel);
             }
-            listener.onConnectComplete(true, listenerCtx);
+            // Must be zero, not anything else -- that's what net.js expects
+            onConnectComplete.accept(0);
 
         } catch (ConnectException ce) {
             if (log.isDebugEnabled()) {
                 log.debug("Error completing connect: {}", ce);
             }
-            listener.onConnectError(Constants.ECONNREFUSED, true, listenerCtx);
-
+            onConnectComplete.accept(Constants.ECONNREFUSED);
 
         } catch (IOException ioe) {
             if (log.isDebugEnabled()) {
                 log.debug("Error completing connect: {}", ioe);
             }
-            listener.onConnectError(Constants.EIO, true, listenerCtx);
+             onConnectComplete.accept(Constants.EIO);
         }
     }
 
@@ -440,7 +442,7 @@ public class NIOSocketHandle
                         log.debug("Sending shutdown for {}", clientChannel);
                     }
                     clientChannel.socket().shutdownOutput();
-                    qw.onWriteComplete.call(null, qw.context, null, true);
+                    qw.onComplete.complete(qw.context, null, true);
                 } else {
                     int written = clientChannel.write(qw.buf);
                     if (log.isDebugEnabled()) {
@@ -454,7 +456,7 @@ public class NIOSocketHandle
                         addInterest(SelectionKey.OP_WRITE);
                         break;
                     } else {
-                        qw.onWriteComplete.call(null, qw.context, null, true);
+                        qw.onComplete.complete(qw.context, null, true);
                     }
                 }
 
@@ -462,12 +464,12 @@ public class NIOSocketHandle
                 if (log.isDebugEnabled()) {
                     log.debug("Channel is closed");
                 }
-                qw.onWriteComplete.call(null, qw.context, Constants.EOF, true);
+                qw.onComplete.complete(qw.context, Constants.EOF, true);
             } catch (IOException ioe) {
                 if (log.isDebugEnabled()) {
                     log.debug("Error on write: {}", ioe);
                 }
-                qw.onWriteComplete.call(null, qw.context, Constants.EIO, true);
+                qw.onComplete.complete(qw.context, Constants.EIO, true);
             }
         }
     }
@@ -492,36 +494,51 @@ public class NIOSocketHandle
             }
             if (read > 0) {
                 readBuffer.flip();
+                // Copy from the read buffer so that we can re use the big thing
                 ByteBuffer buf = ByteBuffer.allocate(readBuffer.remaining());
                 buf.put(readBuffer);
                 buf.flip();
                 readBuffer.clear();
-                Object jsBuf = null;
-                // TODO make an actual buffer!
-                // TODO
-                onRead.call(null, listenerCtx, null, jsBuf);
+                onRead.complete(onReadCtx, null, buf);
 
             } else if (read < 0) {
                 removeInterest(SelectionKey.OP_READ);
-                onRead.call(null, listenerCtx, Constants.EOF, null);
+                onRead.complete(onReadCtx, Constants.EOF, null);
             }
         } while (readStarted && (read > 0));
     }
 
-    public InetSocketAddress getSockName()
+    private Map<String, Object> formatAddress(InetSocketAddress addr)
     {
-        if (svrChannel == null) {
-            return (InetSocketAddress)(clientChannel.socket().getLocalSocketAddress());
+        HashMap<String, Object> ret = new HashMap<>();
+        ret.put("port", addr.getPort());
+        ret.put("address", addr.getAddress().getHostAddress());
+        if (addr.getAddress() instanceof Inet6Address) {
+            ret.put("family", "IPv6");
+        } else {
+            ret.put("family", "IPv4");
         }
-        return (InetSocketAddress)(svrChannel.socket().getLocalSocketAddress());
+        return ret;
     }
 
-    public InetSocketAddress getPeerName()
+    public Map<String, Object> getSockName()
+    {
+        InetSocketAddress addr;
+        if (svrChannel == null) {
+            addr  = (InetSocketAddress)(clientChannel.socket().getLocalSocketAddress());
+        } else {
+            addr = (InetSocketAddress)(svrChannel.socket().getLocalSocketAddress());
+        }
+        return (addr == null ? null : formatAddress(addr));
+    }
+
+    public Map<String, Object> getPeerName()
     {
         if (clientChannel == null) {
             return null;
         }
-        return (InetSocketAddress)(clientChannel.socket().getRemoteSocketAddress());
+        InetSocketAddress addr = (InetSocketAddress)(clientChannel.socket().getRemoteSocketAddress());
+        return (addr == null ? null : formatAddress(addr));
     }
 
     public void setNoDelay(boolean nd)
@@ -563,14 +580,14 @@ public class NIOSocketHandle
         ByteBuffer buf;
         int length;
         Object context;
-        JSObject onWriteComplete;
+        WriteCompleteCallback onComplete;
         boolean shutdown;
 
-        public QueuedWrite(ByteBuffer buf, Object context, JSObject onWriteComplete)
+        public QueuedWrite(ByteBuffer buf, Object context, WriteCompleteCallback onComplete)
         {
             this.buf = buf;
             this.length = (buf == null ? 0 : buf.remaining());
-            this.onWriteComplete = onWriteComplete;
+            this.onComplete = onComplete;
             this.context = context;
         }
     }

@@ -66,28 +66,28 @@ public class ConsoleHandle
     }
 
     @Override
-    public int write(ByteBuffer buf, Object context, JSObject onWriteComplete)
+    public int write(ByteBuffer buf, Object context, WriteCompleteCallback cb)
     {
         int len = buf.remaining();
         String str = Utils.bufferToString(buf, Charsets.UTF8);
         writer.print(str);
         writer.flush();
-        onWriteComplete.call(null, context, null, true);
+        cb.complete(context, null, true);
         return len;
     }
 
     @Override
-    public int write(String s, Charset cs, Object context, JSObject onWriteComplete)
+    public int write(String s, Charset cs, Object context, WriteCompleteCallback cb)
     {
         int len = s.length();
         writer.print(s);
         writer.flush();
-        onWriteComplete.call(null, context, null, true);
+        cb.complete(context, null, true);
         return len;
     }
 
     @Override
-    public void startReading(Object context, JSObject onReadComplete)
+    public void startReading(Object context, ReadCompleteCallback cb)
     {
         if (reading) {
             return;
@@ -95,17 +95,10 @@ public class ConsoleHandle
 
         reading = true;
         runtime.pin();
-        readTask = runtime.getUnboundedPool().submit(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                readLoop(context, onReadComplete);
-            }
-        });
+        readTask = runtime.getUnboundedPool().submit(() -> readLoop(context, cb));
     }
 
-    protected void readLoop(Object context, JSObject onReadComplete)
+    protected void readLoop(Object context, ReadCompleteCallback cb)
     {
         char[] readBuf = new char[READ_BUFFER_SIZE];
         try {
@@ -123,17 +116,17 @@ public class ConsoleHandle
                 }
             }
             if (count < 0) {
-                submitReadCallback(context, Constants.EOF, null, onReadComplete);
+                submitReadCallback(context, Constants.EOF, null, cb);
             }
 
         } catch (InterruptedIOException iee) {
             // Nothing special to do, since we were asked to stop reading
         } catch (EOFException eofe) {
-            submitReadCallback(context, Constants.EOF, null, onReadComplete);
+            submitReadCallback(context, Constants.EOF, null, cb);
         } catch (IOException ioe) {
             String err =
                 ("Stream Closed".equalsIgnoreCase(ioe.getMessage()) ? Constants.EOF : Constants.EIO);
-            submitReadCallback(context, err, null, onReadComplete);
+            submitReadCallback(context, err, null, cb);
         }
     }
 

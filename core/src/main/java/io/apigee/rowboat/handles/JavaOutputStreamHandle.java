@@ -47,7 +47,7 @@ public class JavaOutputStreamHandle
     }
 
     @Override
-    public int write(ByteBuffer buf, Object context, JSObject onWriteComplete)
+    public int write(ByteBuffer buf, Object context, WriteCompleteCallback cb)
     {
         try {
             int len = buf.remaining();
@@ -59,11 +59,11 @@ public class JavaOutputStreamHandle
                 buf.get(tmp);
                 out.write(tmp);
             }
-            onWriteComplete.call(null, context, null, true);
+            cb.complete(context, null, true);
             return len;
 
         } catch (IOException ioe) {
-            onWriteComplete.call(null, context, Constants.EIO, true);
+            cb.complete(context, Constants.EIO, true);
             return 0;
         }
     }

@@ -56,7 +56,7 @@ public class JavaInputStreamHandle
     }
 
     @Override
-    public void startReading(Object context, JSObject onReadComplete)
+    public void startReading(Object context, ReadCompleteCallback cb)
     {
         if (reading) {
             return;
@@ -67,17 +67,10 @@ public class JavaInputStreamHandle
         // network handles, but instead "pin" when the socket is first created.
         reading = true;
         runtime.pin();
-        readTask = runtime.getUnboundedPool().submit(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                readLoop(context, onReadComplete);
-            }
-        });
+        readTask = runtime.getUnboundedPool().submit(() -> readLoop(context,cb));
     }
 
-    protected void readLoop(Object context, JSObject onReadComplete)
+    protected void readLoop(Object context, ReadCompleteCallback cb)
     {
         byte[] readBuf = new byte[READ_BUFFER_SIZE];
         try {
@@ -88,21 +81,21 @@ public class JavaInputStreamHandle
                     ByteBuffer buf = ByteBuffer.allocate(count);
                     buf.put(readBuf, 0, count);
                     buf.flip();
-                    submitReadCallback(context, null, buf, onReadComplete);
+                    submitReadCallback(context, null, buf, cb);
                 }
             }
             if (count < 0) {
-                submitReadCallback(context, Constants.EOF, null, onReadComplete);
+                submitReadCallback(context, Constants.EOF, null, cb);
             }
 
         } catch (InterruptedIOException iee) {
             // Nothing special to do, since we were asked to stop reading
         } catch (EOFException eofe) {
-            submitReadCallback(context, Constants.EOF, null, onReadComplete);
+            submitReadCallback(context, Constants.EOF, null, cb);
         } catch (IOException ioe) {
             String err =
                 ("Stream Closed".equalsIgnoreCase(ioe.getMessage()) ? Constants.EOF : Constants.EIO);
-            submitReadCallback(context, err, null, onReadComplete);
+            submitReadCallback(context, err, null, cb);
         }
     }
 

@@ -296,6 +296,15 @@ Buffer.prototype.toJava = function() {
   return JavaSlowBuffer.convertBuffer(this.parent, this.offset, this.length);
 };
 
+// Convert a Java ByteBuffer to a buffer that shares content. (If you need to copy it,
+// copy it in Java before calling it.)
+Buffer.fromJava = function(b) {
+  var sb = new SlowBuffer(b);
+  // This is how "slice" does it.
+  // Does this end up actually copying the content, or sharing it? Need to check.
+  return new Buffer(sb, sb.length, 0);
+}
+
 // Inspect
 Buffer.prototype.inspect = function inspect() {
   var out = [],

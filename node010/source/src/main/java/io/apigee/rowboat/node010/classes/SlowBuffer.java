@@ -80,6 +80,12 @@ public class SlowBuffer
         buf = new Buf(length);
     }
 
+    public SlowBuffer(ByteBuffer bb)
+    {
+        assert(bb.hasArray());
+        buf = new Buf(bb);
+    }
+
     @Override
     public ByteBuffer getBuffer()
     {
@@ -89,8 +95,20 @@ public class SlowBuffer
     @Override
     public Object newObject(Object... args)
     {
-        int length = ((Number)args[0]).intValue();
-        SlowBuffer ret = new SlowBuffer(length);
+        assert(args.length == 1);
+
+        int length;
+        SlowBuffer ret;
+
+        if (args[0] instanceof ByteBuffer) {
+            length = ((ByteBuffer)args[0]).remaining();
+            ret = new SlowBuffer((ByteBuffer)args[0]);
+        } else if (args[0] instanceof Number) {
+            length = ((Number)args[0]).intValue();
+            ret = new SlowBuffer(length);
+        } else {
+            throw new AssertionError("Expecting a ByteBuffer or Number");
+        }
         ret.setMember("length", length);
         if (constructor != null) {
             constructor.accept(ret);
@@ -178,38 +196,47 @@ public class SlowBuffer
     {
         private byte[] buffer;
         private int bufOffset;
+        private int length;
 
         Buf(int length)
         {
             this.buffer = new byte[length];
+            this.length = length;
+        }
+
+        Buf(ByteBuffer bb)
+        {
+            this.buffer = bb.array();
+            this.bufOffset = bb.arrayOffset() + bb.position();
+            this.length = bb.remaining();
         }
 
         ByteBuffer getBuffer()
         {
-            return ByteBuffer.wrap(buffer);
+            return ByteBuffer.wrap(buffer, bufOffset, length);
         }
 
         Object getSlot(int index)
         {
-            if ((index >= 0) && (index < buffer.length)) {
-                return buffer[index] & 0xff;
+            if ((index >= 0) && (index < length)) {
+                return buffer[index + bufOffset] & 0xff;
             }
             return null;
         }
 
         void setSlot(int i, Object v)
         {
-            if ((i >= 0) && (i < buffer.length)) {
+            if ((i >= 0) && (i < length)) {
                 int val = ((Number)v).intValue();
                 if (val < 0) {
                     val = 0xff + val + 1;
                 }
-                buffer[i] = (byte)(val & 0xff);
+                buffer[i + bufOffset] = (byte)(val & 0xff);
             }
         }
         boolean hasSlot(int i)
         {
-            return ((i >= 0) && (i < buffer.length));
+            return ((i >= 0) && (i < length));
         }
 
         /**
