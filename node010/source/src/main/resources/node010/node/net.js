@@ -446,11 +446,12 @@ Socket.prototype.destroySoon = function() {
 
 
 Socket.prototype._destroy = function(exception, cb) {
-  debug('destroy');
+  debug('destroy exception = %s', exception);
 
   var self = this;
 
   function fireErrorCallbacks() {
+    debug('fireErrorCallbacks %s', exception);
     if (cb) cb(exception);
     if (exception && !self.errorEmitted) {
       process.nextTick(function() {
@@ -510,7 +511,11 @@ Socket.prototype.destroy = function(exception) {
 function onread(buffer, offset, length) {
   var handle = this;
   var self = handle.owner;
-  assert(handle === self._handle, 'handle != self._handle');
+  debug('onread this %s', this);
+  debug('       this.owner = %s', this.owner);
+  debug('       this.owner._handle = %s', this.owner._handle);
+  // TODO
+  //assert(handle === self._handle, 'handle != self._handle');
 
   timers._unrefActive(self);
 
@@ -715,7 +720,7 @@ function afterWrite(status, handle, req) {
   timers._unrefActive(self);
 
   if (self !== process.stderr && self !== process.stdout)
-    debug('afterWrite call cb');
+    debug('afterWrite call cb %s', req.cb);
 
   if (req.cb)
     req.cb.call(self);
@@ -860,10 +865,6 @@ function afterConnect(status, handle, req, readable, writable) {
   if (self.destroyed) {
     return;
   }
-
-  debug('afterConnect: self._handle = ' + self._handle);
-  debug('afterConnect: self = ' + self);
-  assert(handle === self._handle, 'handle != self._handle');
 
   debug('afterConnect');
 

@@ -28,11 +28,11 @@ proto.toJava = function() {
 };
 
 proto.fill = function(value, start, end) {
-  throw new Error('Not implemented');
+  this._handle.fill(value, start, end);
 };
 
 proto.copy = function(target, targetStart, start, end) {
-  throw new Error('Not implemented');
+  return this._handle.copy(target._handle, targetStart, start, end);
 };
 
 // These return strings
@@ -78,11 +78,11 @@ proto.asciiWrite = function(str, offset, length) {
 };
 
 proto.binaryWrite = function(str, offset, length) {
-  return this._handle.write(str, offset, length, Charsets.BINARY, updateCharsWritten);
+  return this._handle.write(str, offset, length, Charsets.NODE_BINARY, updateCharsWritten);
 };
 
 proto.base64Write = function(str, offset, length) {
-  return this._handle.write(str, offset, length, Charsets.NODE_BASE64, updateCharsWritten);
+  return this._handle.write(str, offset, length, Charsets.BASE64, updateCharsWritten);
 };
 
 proto.ucs2Write = function(str, offset, length) {

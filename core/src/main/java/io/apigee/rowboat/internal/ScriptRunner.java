@@ -909,30 +909,9 @@ public class ScriptRunner
 
         engine.getBindings(ScriptContext.ENGINE_SCOPE).put("global", new DefaultScriptObject());
 
-        //process = (JSObject)processClass.newObject(this);
-
         // The buffer module needs special handling because of the "charsWritten" variable
         // TODO
         //buffer = (Buffer.BufferModuleImpl)require("buffer", cx);
-
-        // Set up metrics -- defining these lets us run internal Node projects.
-        // Presumably in "real" node these are set up by some sort of preprocessor...
-        // TODO
-            /*
-            Scriptable metrics = nativeMod.internalRequire("trireme_metrics", cx);
-            copyProp(metrics, scope, "DTRACE_NET_SERVER_CONNECTION");
-            copyProp(metrics, scope, "DTRACE_NET_STREAM_END");
-            copyProp(metrics, scope, "COUNTER_NET_SERVER_CONNECTION");
-            copyProp(metrics, scope, "COUNTER_NET_SERVER_CONNECTION_CLOSE");
-            copyProp(metrics, scope, "DTRACE_HTTP_CLIENT_REQUEST");
-            copyProp(metrics, scope, "DTRACE_HTTP_CLIENT_RESPONSE");
-            copyProp(metrics, scope, "DTRACE_HTTP_SERVER_REQUEST");
-            copyProp(metrics, scope, "DTRACE_HTTP_SERVER_RESPONSE");
-            copyProp(metrics, scope, "COUNTER_HTTP_CLIENT_REQUEST");
-            copyProp(metrics, scope, "COUNTER_HTTP_CLIENT_RESPONSE");
-            copyProp(metrics, scope, "COUNTER_HTTP_SERVER_REQUEST");
-            copyProp(metrics, scope, "COUNTER_HTTP_SERVER_RESPONSE");
-            */
     }
 
     /**

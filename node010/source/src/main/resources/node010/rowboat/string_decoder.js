@@ -32,7 +32,9 @@ var StringDecoder = exports.StringDecoder = function(enc) {
     throw new Error('Unknown encoding: ' + encoding);
   }
 
-  this.decoder = new DecoderWrap(encoding);
+  Object.defineProperty(this, 'decoder', {
+    value: new DecoderWrap(encoding)
+  });
   this.encoding = encoding;
 };
 
@@ -48,6 +50,8 @@ StringDecoder.prototype.write = function(buffer) {
 };
 
 StringDecoder.prototype.end = function(buf) {
-  var buffer = (buf ? buf : null);
-  return this.decoder.end(toBuf(buf).toJava());
+  if (buf) {
+    return this.decoder.end(toBuf(buf).toJava());
+  }
+  return this.decoder.end(null);
 };

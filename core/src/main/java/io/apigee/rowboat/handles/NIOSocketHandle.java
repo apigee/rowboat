@@ -43,6 +43,7 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -64,8 +65,7 @@ public class NIOSocketHandle
     private int                     queuedBytes;
     private ByteBuffer              readBuffer;
     private boolean                 writeReady;
-    private ReadCompleteCallback    onRead;
-    private Object                  onReadCtx;
+    private BiConsumer<Object, ByteBuffer> onRead;
     private Consumer<AbstractHandle> onConnection;
     private Consumer<Object>        onConnectComplete;
 
@@ -118,6 +118,7 @@ public class NIOSocketHandle
         }
     }
 
+    @SuppressWarnings("unused")
     @Override
     public void close()
     {
@@ -141,6 +142,7 @@ public class NIOSocketHandle
         }
     }
 
+    @SuppressWarnings("unused")
     public void bind(String address, int port)
         throws NodeOSException
     {
@@ -150,6 +152,7 @@ public class NIOSocketHandle
         }
     }
 
+    @SuppressWarnings("unused")
     public void listen(int backlog, Consumer<AbstractHandle> cb)
         throws NodeOSException
     {
@@ -250,17 +253,19 @@ public class NIOSocketHandle
         }
     }
 
+    @SuppressWarnings("unused")
     @Override
-    public int write(ByteBuffer buf, Object context, WriteCompleteCallback cb)
+    public int write(ByteBuffer buf, Consumer<Object> cb)
     {
-        QueuedWrite qw = new QueuedWrite(buf, context, cb);
+        QueuedWrite qw = new QueuedWrite(buf, cb);
         offerWrite(qw);
         return qw.length;
     }
 
-    public void shutdown(Object context, WriteCompleteCallback cb)
+    @SuppressWarnings("unused")
+    public void shutdown(Consumer<Object> cb)
     {
-        QueuedWrite qw = new QueuedWrite(null, context, cb);
+        QueuedWrite qw = new QueuedWrite(null, cb);
         qw.shutdown = true;
         offerWrite(qw);
     }
@@ -285,7 +290,8 @@ public class NIOSocketHandle
                 writeReady = false;
                 queueWrite(qw);
             } else {
-                qw.onComplete.complete(qw.context, null, true);
+                log.debug("Write complete");
+                qw.onComplete.accept(null);
             }
         } else {
             queueWrite(qw);
@@ -299,32 +305,37 @@ public class NIOSocketHandle
         queuedBytes += qw.length;
     }
 
+    @SuppressWarnings("unused")
     @Override
     public int getWritesOutstanding()
     {
         return queuedBytes;
     }
 
+    @SuppressWarnings("unused")
     @Override
-    public void startReading(Object context, ReadCompleteCallback cb)
+    public void startReading(BiConsumer<Object, ByteBuffer> cb)
     {
         if (!readStarted) {
+            log.debug("startReading");
             this.onRead = cb;
-            this.onReadCtx = context;
             addInterest(SelectionKey.OP_READ);
             readStarted = true;
         }
     }
 
+    @SuppressWarnings("unused")
     @Override
     public void stopReading()
     {
         if (readStarted) {
+            log.debug("stopReading");
             removeInterest(SelectionKey.OP_READ);
             readStarted = false;
         }
     }
 
+    @SuppressWarnings("unused")
     public void connect(String host, int port, Consumer<Object> cb)
         throws NodeOSException
     {
@@ -442,7 +453,8 @@ public class NIOSocketHandle
                         log.debug("Sending shutdown for {}", clientChannel);
                     }
                     clientChannel.socket().shutdownOutput();
-                    qw.onComplete.complete(qw.context, null, true);
+                    log.debug("Write complete");
+                    qw.onComplete.accept(null);
                 } else {
                     int written = clientChannel.write(qw.buf);
                     if (log.isDebugEnabled()) {
@@ -456,7 +468,8 @@ public class NIOSocketHandle
                         addInterest(SelectionKey.OP_WRITE);
                         break;
                     } else {
-                        qw.onComplete.complete(qw.context, null, true);
+                        log.debug("Write complete");
+                        qw.onComplete.accept(null);
                     }
                 }
 
@@ -464,12 +477,12 @@ public class NIOSocketHandle
                 if (log.isDebugEnabled()) {
                     log.debug("Channel is closed");
                 }
-                qw.onComplete.complete(qw.context, Constants.EOF, true);
+                qw.onComplete.accept(Constants.EOF);
             } catch (IOException ioe) {
                 if (log.isDebugEnabled()) {
                     log.debug("Error on write: {}", ioe);
                 }
-                qw.onComplete.complete(qw.context, Constants.EIO, true);
+                qw.onComplete.accept(Constants.EIO);
             }
         }
     }
@@ -499,11 +512,13 @@ public class NIOSocketHandle
                 buf.put(readBuffer);
                 buf.flip();
                 readBuffer.clear();
-                onRead.complete(onReadCtx, null, buf);
+                log.debug("Delivering read callback");
+                onRead.accept(null, buf);
 
             } else if (read < 0) {
                 removeInterest(SelectionKey.OP_READ);
-                onRead.complete(onReadCtx, Constants.EOF, null);
+                log.debug("Delivering EOF for read");
+                onRead.accept(Constants.EOF, null);
             }
         } while (readStarted && (read > 0));
     }
@@ -521,6 +536,7 @@ public class NIOSocketHandle
         return ret;
     }
 
+    @SuppressWarnings("unused")
     public Map<String, Object> getSockName()
     {
         InetSocketAddress addr;
@@ -532,6 +548,7 @@ public class NIOSocketHandle
         return (addr == null ? null : formatAddress(addr));
     }
 
+    @SuppressWarnings("unused")
     public Map<String, Object> getPeerName()
     {
         if (clientChannel == null) {
@@ -541,6 +558,7 @@ public class NIOSocketHandle
         return (addr == null ? null : formatAddress(addr));
     }
 
+    @SuppressWarnings("unused")
     public void setNoDelay(boolean nd)
         throws NodeOSException
     {
@@ -554,6 +572,7 @@ public class NIOSocketHandle
         }
     }
 
+    @SuppressWarnings("unused")
     public void setKeepAlive(boolean nd)
         throws NodeOSException
     {
@@ -579,16 +598,14 @@ public class NIOSocketHandle
     {
         ByteBuffer buf;
         int length;
-        Object context;
-        WriteCompleteCallback onComplete;
+        Consumer<Object> onComplete;
         boolean shutdown;
 
-        public QueuedWrite(ByteBuffer buf, Object context, WriteCompleteCallback onComplete)
+        public QueuedWrite(ByteBuffer buf, Consumer<Object> onComplete)
         {
             this.buf = buf;
             this.length = (buf == null ? 0 : buf.remaining());
             this.onComplete = onComplete;
-            this.context = context;
         }
     }
 }

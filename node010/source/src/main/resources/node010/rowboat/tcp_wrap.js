@@ -39,11 +39,14 @@ if (process.env.NODE_DEBUG && /net/.test(process.env.NODE_DEBUG)) {
   debug = function() { };
 }
 
+var lastId = 0;
+
 function TCP(h) {
   if (!(this instanceof TCP)) {
     return new TCP(h);
   }
 
+  this.id = lastId++;
   var handle = (h ? h : new NIOSocketHandle(process.getRuntime()));
   Stream.call(this, handle);
 
@@ -53,6 +56,10 @@ function TCP(h) {
 }
 module.exports.TCP = TCP;
 util.inherits(TCP, Stream);
+
+TCP.prototype.toString = function() {
+  return 'TCP handle ' + this.id;
+};
 
 function bind(address, port) {
   try {
@@ -69,7 +76,7 @@ TCP.prototype.bind6 = bind;
 
 TCP.prototype.listen = function(backlog) {
   try {
-    debug(this + ': listen');
+    debug(this.id + ': listen');
     var self = this;
     this.handle.listen(backlog, function(sockHandle) {
       onConnection(self, sockHandle);
@@ -83,18 +90,17 @@ TCP.prototype.listen = function(backlog) {
 };
 
 function onConnection(self, sockHandle) {
-  debug('onConnection. self = ' + self);
-  if (self.onConnection) {
+  debug(self.id + ': onConnection. self = ' + self);
+  if (self.onconnection) {
     var newHandle = new TCP(sockHandle);
-    self.onConnection(newHandle);
+    self.onconnection.call(self, newHandle);
   }
 }
 
 function connect(host, port) {
   var req = {};
   try {
-    debug(this + ': connect');
-    debug('  handle.owner = ' + this.owner);
+    debug(this.id + ': connect');
     var self = this;
     this.handle.connect(host, port, function(err) {
       onConnectComplete(self, req, err);
@@ -110,48 +116,69 @@ TCP.prototype.connect = connect;
 TCP.prototype.connect6 = connect;
 
 function onConnectComplete(self, req, err) {
-  debug('onConnectComplete self = ' + self);
+  debug(self.id + ': onConnectComplete self = ' + self);
   if (req.oncomplete) {
-    req.oncomplete(err, self, req, true, true);
+    req.oncomplete.call(self, err, self, req, true, true);
   }
 }
 
 TCP.prototype.shutdown = function() {
-  var req = {};
+  var req = {
+    _handle: this
+  };
+  var self = this;
   try {
-    this.handle.shutdown(this, function() {
-      // TODO is there anything that we should do here?
+    this.handle.shutdown(function(err) {
+      onShutdownComplete(self, req, err);
     });
-    process.errno = 0;
+    process._errno = 0;
     return req;
   } catch (e) {
-    process.errno = process.getJavaErrno(e);
+    debug('Error on shutdown: %j', e);
+    process._errno = process.getJavaErrno(e);
     return null;
   }
 };
 
+function onShutdownComplete(self, req, err) {
+  // This version of Node expects to set "oncomplete" only after write returns.
+  setImmediate(function() {
+    if (req.oncomplete) {
+      req.oncomplete.call(self, err, req._handle, req);
+    }
+  });
+}
+
+function convertAddress(m) {
+  return {
+    port: m.port,
+    address: m.address,
+    family: m.family
+  };
+}
+
 TCP.prototype.getsockname = function() {
-  return Java.from(this.handle.getSockName());
+  return convertAddress(this.handle.getSockName());
 };
 
 TCP.prototype.getpeername = function() {
-  return Java.from(this.handle.getPeerName());
+  return convertAddress(this.handle.getPeerName());
 };
 
 TCP.prototype.setNoDelay = function(no) {
   try {
     this.handle.setNoDelay(no);
-    process.errno = 0;
+    process._errno = 0;
   } catch (e) {
-    process.errno = process.getJavaErrno(e);
+    process._errno = process.getJavaErrno(e);
   }
 };
 
 TCP.prototype.setKeepAlive = function(no) {
   try {
     this.handle.setKeepAlive(no);
-    process.errno = 0;
+    process._errno = 0;
   } catch (e) {
-    process.errno = process.getJavaErrno(e);
+    process._errno = process.getJavaErrno(e);
   }
 };

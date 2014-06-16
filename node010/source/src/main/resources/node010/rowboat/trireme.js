@@ -840,6 +840,24 @@ function _triremeMain(process, topScope) {
       process.setSubmitTick(submitDomainTick);
     }
     process._usingDomains = usingDomains;
+
+    // Node.js inserts these things for metrics and monitoring. Right now we don't do anything
+    // like that so we are going to stub them out here.
+    function noMetrics() {
+    }
+
+    global.DTRACE_NET_SERVER_CONNECTION = noMetrics;
+    global.DTRACE_NET_STREAM_END = noMetrics;
+    global.COUNTER_NET_SERVER_CONNECTION = noMetrics;
+    global.COUNTER_NET_SERVER_CONNECTION_CLOSE = noMetrics;
+    global.DTRACE_HTTP_CLIENT_REQUEST = noMetrics;
+    global.DTRACE_HTTP_CLIENT_RESPONSE = noMetrics;
+    global.DTRACE_HTTP_SERVER_REQUEST = noMetrics;
+    global.DTRACE_HTTP_SERVER_RESPONSE = noMetrics;
+    global.COUNTER_HTTP_CLIENT_REQUEST = noMetrics;
+    global.COUNTER_HTTP_CLIENT_RESPONSE = noMetrics;
+    global.COUNTER_HTTP_SERVER_REQUEST = noMetrics;
+    global.COUNTER_HTTP_SERVER_RESPONSE = noMetrics;
   };
 
   // Below you find a minimal module system, which is used to load the node

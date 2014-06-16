@@ -357,4 +357,4 @@ function getJavaErrno(ne) {
   }
   return Constants.EIO;
 }
-Process.prototype.getJavaErrno = getJavaErrno();
+Process.prototype.getJavaErrno = getJavaErrno;

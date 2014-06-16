@@ -22,12 +22,12 @@
 package io.apigee.rowboat.handles;
 
 import io.apigee.rowboat.NodeRuntime;
-import io.apigee.rowboat.ScriptTask;
 import io.apigee.rowboat.internal.Utils;
-import jdk.nashorn.api.scripting.JSObject;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * This class is the base of all handle types that are used for I/O in Trireme.
@@ -42,20 +42,20 @@ public abstract class AbstractHandle
         this.runtime = runtime;
     }
 
-    public int write(ByteBuffer buf, Object context, WriteCompleteCallback cb)
+    public int write(ByteBuffer buf, Consumer<Object> cb)
     {
         throw new IllegalStateException("Handle not capable of writing");
     }
 
-    public int write(String s, Charset cs, Object context, WriteCompleteCallback onWriteComplete)
+    public int write(String s, Charset cs, Consumer<Object> cb)
     {
         // Convert the string to a buffer, which may involve some re-allocating and copying if the
         // string has many long multi-byte characters.
         // An alternative would be to use CharsetEncoder directly here and call "write" for every
         // chunk of data that it produces. This would optimize for allocating and copying ByteBuffers
         // but it would result in more "write" calls to the socket.
-        ByteBuffer buf = Utils.stringToBuffer(s, cs);
-        return write(buf, context, onWriteComplete);
+        ByteBuffer buf = ByteBuffer.wrap(s.getBytes(cs));
+        return write(buf, cb);
     }
 
     public int getWritesOutstanding()
@@ -63,7 +63,7 @@ public abstract class AbstractHandle
         return 0;
     }
 
-    public void startReading(Object context, ReadCompleteCallback cb)
+    public void startReading(BiConsumer<Object, ByteBuffer> cb)
     {
         throw new IllegalStateException("Handle not capable of reading");
     }
@@ -75,9 +75,9 @@ public abstract class AbstractHandle
 
     public abstract void close();
 
-    protected void submitReadCallback(Object context, String err,
-                                      ByteBuffer buf, ReadCompleteCallback cb)
+    protected void submitReadCallback(String err,
+                                      ByteBuffer buf, BiConsumer<Object, ByteBuffer> cb)
     {
-        runtime.enqueueTask(() -> cb.complete(context, err, buf));
+        runtime.enqueueTask(() -> cb.accept(err, buf));
     }
 }

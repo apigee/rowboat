@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
 
 /**
  * This class implements the generic "handle" pattern with a Java input or output stream. Different Node
@@ -56,7 +57,7 @@ public class JavaInputStreamHandle
     }
 
     @Override
-    public void startReading(Object context, ReadCompleteCallback cb)
+    public void startReading(BiConsumer<Object, ByteBuffer> cb)
     {
         if (reading) {
             return;
@@ -67,10 +68,10 @@ public class JavaInputStreamHandle
         // network handles, but instead "pin" when the socket is first created.
         reading = true;
         runtime.pin();
-        readTask = runtime.getUnboundedPool().submit(() -> readLoop(context,cb));
+        readTask = runtime.getUnboundedPool().submit(() -> readLoop(cb));
     }
 
-    protected void readLoop(Object context, ReadCompleteCallback cb)
+    protected void readLoop(BiConsumer<Object, ByteBuffer> cb)
     {
         byte[] readBuf = new byte[READ_BUFFER_SIZE];
         try {
@@ -81,21 +82,21 @@ public class JavaInputStreamHandle
                     ByteBuffer buf = ByteBuffer.allocate(count);
                     buf.put(readBuf, 0, count);
                     buf.flip();
-                    submitReadCallback(context, null, buf, cb);
+                    submitReadCallback(null, buf, cb);
                 }
             }
             if (count < 0) {
-                submitReadCallback(context, Constants.EOF, null, cb);
+                submitReadCallback(Constants.EOF, null, cb);
             }
 
         } catch (InterruptedIOException iee) {
             // Nothing special to do, since we were asked to stop reading
         } catch (EOFException eofe) {
-            submitReadCallback(context, Constants.EOF, null, cb);
+            submitReadCallback(Constants.EOF, null, cb);
         } catch (IOException ioe) {
             String err =
                 ("Stream Closed".equalsIgnoreCase(ioe.getMessage()) ? Constants.EOF : Constants.EIO);
-            submitReadCallback(context, err, null, cb);
+            submitReadCallback(err, null, cb);
         }
     }
 

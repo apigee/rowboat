@@ -23,11 +23,11 @@ package io.apigee.rowboat.handles;
 
 import io.apigee.rowboat.NodeRuntime;
 import io.apigee.rowboat.internal.Constants;
-import jdk.nashorn.api.scripting.JSObject;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.function.Consumer;
 
 /**
  * This class implements the generic "handle" pattern with a Java input or output stream. Different Node
@@ -47,7 +47,7 @@ public class JavaOutputStreamHandle
     }
 
     @Override
-    public int write(ByteBuffer buf, Object context, WriteCompleteCallback cb)
+    public int write(ByteBuffer buf, Consumer<Object> cb)
     {
         try {
             int len = buf.remaining();
@@ -59,11 +59,11 @@ public class JavaOutputStreamHandle
                 buf.get(tmp);
                 out.write(tmp);
             }
-            cb.complete(context, null, true);
+            cb.accept(null);
             return len;
 
         } catch (IOException ioe) {
-            cb.complete(context, Constants.EIO, true);
+            cb.accept(Constants.EIO);
             return 0;
         }
     }

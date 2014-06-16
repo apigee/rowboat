@@ -68,6 +68,7 @@ public class Node010Implementation
             { "constants", N + "constants.js" },
             { "crypto", N + "crypto.js" },
             { "dgram", N + "dgram.js" },
+            { "dns", N + "dns.js" },
             { "domain", N + "domain.js" },
             { "events", N + "events.js" },
             { "freelist", N + "freelist.js" },

@@ -4,12 +4,15 @@ import io.apigee.rowboat.binding.AbstractScriptObject;
 import io.apigee.rowboat.binding.JSConstructor;
 import io.apigee.rowboat.internal.Buffer;
 import io.apigee.rowboat.internal.Charsets;
+import io.apigee.rowboat.internal.Constants;
+import io.apigee.rowboat.internal.NodeOSException;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
+import java.util.Arrays;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
@@ -266,6 +269,32 @@ public class SlowBuffer
         public String slice(int start, int end, Charset cs)
         {
             return new String(buffer, bufOffset + start, end - start, cs);
+        }
+
+        @SuppressWarnings("unused")
+        public void fill(Object val, int start, int end)
+        {
+            byte toFill;
+            if (val instanceof Number) {
+                toFill = (byte)((Number)val).intValue();
+            } else if (val instanceof Boolean) {
+                toFill = ((Boolean)val).booleanValue() ? (byte)1 : (byte)0;
+            } else if (val instanceof CharSequence) {
+                toFill = (byte)(((CharSequence)val).toString().charAt(0));
+            } else {
+                throw new NodeOSException(Constants.EINVAL);
+            }
+            Arrays.fill(buffer, bufOffset + start, end - start, toFill);
+        }
+
+        @SuppressWarnings("unused")
+        public int copy(Buf target, int targetStart, int start, int end)
+        {
+            int len = end - start;
+            System.arraycopy(buffer, bufOffset + start,
+                             target.buffer, target.bufOffset + targetStart,
+                             len);
+            return len;
         }
     }
 }

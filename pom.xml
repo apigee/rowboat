@@ -44,6 +44,7 @@
     <module>core</module>
     <module>node010</module>
     <module>nodetests</module>
+    <module>shell</module>
   </modules>
    
   <dependencyManagement>

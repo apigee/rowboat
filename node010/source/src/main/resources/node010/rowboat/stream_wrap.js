@@ -25,12 +25,30 @@ var Charsets = Java.type('io.apigee.rowboat.internal.Charsets');
 var Referenceable = process.binding('referenceable').Referenceable;
 var util = require('util');
 
+var debug;
+if (process.env.NODE_DEBUG && /net/.test(process.env.NODE_DEBUG)) {
+  var pid = process.pid;
+  debug = function(x) {
+    // if console is not set up yet, then skip this.
+    if (!console.error)
+      return;
+    console.error('STREAM_WRAP: %d', pid,
+                  util.format.apply(util, arguments).slice(0, 500));
+  };
+} else {
+  debug = function() { };
+}
+
 function Stream(handle) {
   if (!(this instanceof Stream)) {
     return new Stream(handle);
   }
 
-  this.handle = handle;
+  // The handle is a Java object -- make it non-enumerable or debugging will break
+  Object.defineProperty(this, 'handle', {
+    value: handle
+  });
+
   this.bytes = 0;
   Referenceable.call(this);
 
@@ -46,19 +64,22 @@ Stream.prototype.getWriteQueueSize = function() {
 };
 
 Stream.prototype.close = function(cb) {
-  Referenceable.close.call(this);
+  Referenceable.prototype.close.call(this);
   this.handle.close();
-  unref();
   if (cb) {
     setImmediate(cb);
   }
 };
 
 Stream.prototype.writeBuffer = function(buf) {
-  var req = {};
-  var len = this.handle.write(buf, req, onWriteComplete);
+  var req = {
+    _handle: this
+  };
+  var self = this;
+  var len = this.handle.write(buf.toJava(), function(err) {
+    onWriteComplete(self, req, err);
+  });
   req.bytes = len;
-  req._handle = self.handle;
   this.bytes += len;
   return req;
 };
@@ -76,31 +97,31 @@ Stream.prototype.writeAsciiString = function(s) {
 };
 
 function writeString(self, s, cs) {
-  var req = {};
-  var len = self.handle.write(s, cs, req, onWriteComplete);
+  var req = {
+    _handle: self
+  };
+  var len = self.handle.write(s, cs, function(err) {
+    onWriteComplete(self, req, err);
+  });
   req.bytes = len;
-  req._handle = self.handle;
   self.bytes += len;
   return req;
 }
 
-function onWriteComplete(req, err, calledInline) {
-  if (calledInline) {
+function onWriteComplete(self, req, err) {
+  // This version of Node expects to set "oncomplete" only after write returns.
+  setImmediate(function() {
     if (req.oncomplete) {
-      req.oncomplete(err, req._handle, req);
+      req.oncomplete.call(self, err, req._handle, req);
     }
-  } else {
-    // This version of Node expects to set "oncomplete" only after write returns.
-    setImmediate(function() {
-      if (req.oncomplete) {
-          req.oncomplete(err, req._handle, req);
-      }
-    });
-  }
+  });
 }
 
 Stream.prototype.readStart = function() {
-  this.handle.startReading(this, onReadComplete);
+  var self = this;
+  this.handle.startReading(function(err, buf) {
+    onReadComplete(self, err, buf);
+  });
 };
 
 Stream.prototype.readStop = function() {
@@ -108,10 +129,13 @@ Stream.prototype.readStop = function() {
 };
 
 function onReadComplete(self, err, javaBuf) {
-  if (self.onRead) {
-    process.errno = (err ? err : null);
-    var buf = (javaBuf ? Buffer.fromJava(javaBuf) : undefined);
-    self.onread(buf, 0, buf.length);
+  if (self.onread) {
+    process._errno = (err ? err : 0);
+    if (javaBuf) {
+      var buf = Buffer.fromJava(javaBuf);
+      self.onread.call(self, buf, 0, buf.length);
+    } else {
+      self.onread.call(self, null, 0, 0);
+    }
   }
 }
-

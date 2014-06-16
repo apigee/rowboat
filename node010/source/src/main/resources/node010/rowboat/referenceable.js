@@ -26,7 +26,7 @@ function Referenceable() {
 module.exports.Referenceable = Referenceable;
 
 Referenceable.prototype.close = function() {
-  unref();
+  this.unref();
 };
 
 Referenceable.prototype.ref = function() {

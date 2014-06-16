@@ -20,7 +20,15 @@
  * SOFTWARE.
  */
 
-function Console() {
+var util = require('util');
+var Stream = process.binding('stream_wrap').Stream;
+
+function Console(handle) {
+  if (!(this instanceof Console)) {
+    return new Console(handle);
+  }
+  Stream.call(this, handle);
 }
 module.exports.Console = Console;
+util.inherits(Console, Stream);
 
