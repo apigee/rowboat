@@ -35,6 +35,9 @@ function _triremeMain(process, topScope) {
   topScope.global = topScope;
 
   function startup() {
+    // Replace this right away to avoid conflict later
+    _nashornLoad = load;
+
     var EventEmitter = NativeModule.require('events').EventEmitter;
 
     // Use a different and slightly-hacky way to get the functions from EventEmitter on to this object,
@@ -70,7 +73,7 @@ function _triremeMain(process, topScope) {
     startup.processKillAndExit();
     startup.processSignalHandlers();
 
-    startup.processTrireme();
+    startup.processRowboat();
 
     startup.processChannel();
 
@@ -797,8 +800,8 @@ function _triremeMain(process, topScope) {
     }
   };
 
-  // Do Trireme-specific things, which we do a little bit differently than node.js
-  startup.processTrireme = function() {
+  // Do Rowboat-specific things, which we do a little bit differently than node.js
+  startup.processRowboat = function() {
     function copyArgs(args, skipCount) {
       var a = [];
       for (var i = skipCount; i < args.length; i++) {
@@ -858,6 +861,18 @@ function _triremeMain(process, topScope) {
     global.COUNTER_HTTP_CLIENT_RESPONSE = noMetrics;
     global.COUNTER_HTTP_SERVER_REQUEST = noMetrics;
     global.COUNTER_HTTP_SERVER_RESPONSE = noMetrics;
+
+    // Fix up stuff that is Nashorn-specific that could break other scripts:
+    global._nashornLoad = global.load;
+    delete global.load;
+    global._nashornLoadWitNewGlobal = global.loadWithNoGlobal;
+    delete global.loadWithNoGlobal;
+
+    global._nashornPrint = global.print;
+    delete global.print;
+
+    delete global.quit;
+    delete global.exit;
   };
 
   // Below you find a minimal module system, which is used to load the node
@@ -910,6 +925,7 @@ function _triremeMain(process, topScope) {
   NativeModule.wrap = function(script) {
     return NativeModule.wrapper[0] + script + NativeModule.wrapper[1];
   };
+  NativeModule.prototype.wrap = NativeModule.wrap;
 
   NativeModule.wrapper = [
     '(function (exports, require, module, __filename, __dirname) {',
@@ -917,7 +933,12 @@ function _triremeMain(process, topScope) {
   ];
 
   NativeModule.prototype.compile = function() {
-    this.exports = process.getNativeModule(this.id, NativeModule.require, this, this.filename);
+    var source = process.getNativeModuleSource(this.id);
+    var toLoad = { script: NativeModule.wrap(source), name: this.filename };
+
+    var f = _nashornLoad(toLoad);
+
+    f.call(null, this.exports, NativeModule.require, this, this.filename);
     this.loaded = true;
   };
 

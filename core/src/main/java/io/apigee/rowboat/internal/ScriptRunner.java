@@ -563,8 +563,11 @@ public class ScriptRunner
 
             // Run "trireme.js," which is our equivalent of "node.js". It returns a function that takes
             // "process". When done, we may have ticks to execute.
-            CompiledScript mainScript = registry.getMainScript(engine);
-            mainScript.eval();
+            String mainScript = registry.getMainScriptSource();
+            CompiledScript mainCompiled =
+                ((Compilable)engine).compile(mainScript);
+            mainCompiled.eval();
+            //engine.eval(mainScript);
 
             boolean timing = startTiming();
             try {
@@ -926,16 +929,12 @@ public class ScriptRunner
             return mod.getExports(this);
         }
 
-        CompiledScript script = registry.getModule(modName, engine, internal);
-        if (script == null) {
+        String source = registry.getModuleSource(modName, internal);
+        if (source == null) {
             return null;
         }
-
-        // TODO __dirname?
-
-        Object result;
         try {
-            script.eval();
+            engine.eval(registry.wrapSource(source, modName, modName));
         } catch (ScriptException se) {
             throw new NodeException("Error initializing module: " + se, se);
         }
@@ -945,6 +944,27 @@ public class ScriptRunner
         } catch (ScriptException|NoSuchMethodException e) {
             throw new NodeException(e);
         }
+    }
+
+    /**
+     * Only return a module implemented in Java.
+     */
+    public Object getJavaModule(String modName, boolean internal)
+    {
+       NodeModule mod = registry.getJavaModule(modName, internal);
+        if (mod == null) {
+            return null;
+        }
+        return mod.getExports(this);
+    }
+
+    /**
+     * Simply return a native module's source code for direct loading into the script engine.
+     */
+    @SuppressWarnings("unused")
+    public String getModuleSource(String modName, boolean internal)
+    {
+        return registry.getModuleSource(modName, internal);
     }
 
     /**

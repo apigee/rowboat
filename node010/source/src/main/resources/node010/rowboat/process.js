@@ -66,6 +66,9 @@ function Process(runtime) {
   this.noDeprecation = script.isNoDeprecation();
   this.traceDeprecation = script.isTraceDeprecation();
 
+  // execArgv holds various node options -- leave them out for now.
+  this.execArgv = [];
+
   Object.defineProperty(this, "env", {
     get: this.getEnv
   });
@@ -209,8 +212,21 @@ Process.prototype.binding = function(module) {
 
   var mod = { exports: {} };
   this._bindingCache[module] = mod;
-  mod.exports = this._runtime.initializeModule(module, true, this._nativeModule.require,
-                                               mod, mod.exports, module + '.js');
+
+  var javaMod = this._runtime.getJavaModule(module, true);
+  if (javaMod === null) {
+    var source = this._runtime.getModuleSource(module, true);
+    if (source === null) {
+      return null;
+    }
+    var toLoad = { script: this._nativeModule.wrap(source), name: module };
+    var f = _nashornLoad(toLoad);
+    f.call(null, mod.exports, this._nativeModule.require, mod, module);
+
+  } else {
+    mod.exports = javaMod;
+  }
+
   mod.loaded = true;
   return mod.exports;
 };
@@ -224,6 +240,10 @@ Process.prototype.getNativeModule = function(name, require, module, fileName) {
     module.exports = {};
   }
   return this._runtime.initializeModule(name, false, require, module, module.exports, fileName);
+};
+
+Process.prototype.getNativeModuleSource = function(name) {
+  return this._runtime.getModuleSource(name, false);
 };
 
 Process.prototype.abort = function() {
@@ -358,3 +378,14 @@ function getJavaErrno(ne) {
   return Constants.EIO;
 }
 Process.prototype.getJavaErrno = getJavaErrno;
+
+/*
+ * Return the errno from a NodeOSException, or rethrow if the exception was something else.
+ */
+function checkJavaErrno(ne) {
+  if (ne instanceof NodeOSException) {
+    return ne.getCode();
+  }
+  throw ne;
+}
+Process.prototype.checkJavaErrno = checkJavaErrno;

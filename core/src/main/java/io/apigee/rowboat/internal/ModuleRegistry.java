@@ -79,6 +79,7 @@ public class ModuleRegistry
     private final NodeImplementation                   implementation;
 
     private CompiledScript                       mainScript;
+    private String                               mainScriptSource;
 
     private boolean        loaded;
 
@@ -123,10 +124,10 @@ public class ModuleRegistry
         */
 
         for (String[] builtin : implementation.getBuiltInModules()) {
-            builtInModules.put(builtin[0], new ScriptModule(builtin[0], builtin[1]));
+            builtInModules.put(builtin[0], new ScriptModule(builtin[1]));
         }
         for (String[] internal : implementation.getInternalModules()) {
-            internalModules.put(internal[0], new ScriptModule(internal[0], internal[1]));
+            internalModules.put(internal[0], new ScriptModule(internal[1]));
         }
         for (Class<? extends NodeModule> klass : implementation.getJavaModules()) {
             NodeModule m = instantiate(klass);
@@ -183,43 +184,37 @@ public class ModuleRegistry
         }
     }
 
-    protected CompiledScript loadFromSource(String scriptName, String name, ScriptEngine engine, boolean wrap)
+    protected String loadSource(String name)
     {
-        try {
-            try (InputStream in = implementation.getClass().getResourceAsStream(name)) {
-                if (in == null) {
-                    return null;
-                }
-                InputStreamReader rdr = new InputStreamReader(in, Charsets.UTF8);
-
-                StringBuilder src = new StringBuilder();
-                if (wrap) {
-                    src.append(MODULE_WRAP_START_1);
-                    src.append(scriptName);
-                    src.append(MODULE_WRAP_START_2);
-                }
-                char[] buf = new char[4096];
-                int r;
-                do {
-                    r = rdr.read(buf);
-                    if (r > 0) {
-                        src.append(buf, 0, r);
-                    }
-                } while (r >= 0);
-
-                if (wrap) {
-                    src.append(MODULE_WRAP_END);
-                }
-                // Put a "#sourceURL" annotation on the script to make stack traces readable
-                src.append(SOURCE_URL);
-                src.append(name);
-                return ((Compilable)engine).compile(src.toString());
-
-            } catch (ScriptException se) {
-                throw new NodeException("Can't compile script: " + name + ": " + se, se);
+        try (InputStream in = implementation.getClass().getResourceAsStream(name)) {
+            if (in == null) {
+                return null;
             }
+            InputStreamReader rdr = new InputStreamReader(in, Charsets.UTF8);
+
+            StringBuilder src = new StringBuilder();
+            char[] buf = new char[4096];
+            int r;
+            do {
+                r = rdr.read(buf);
+                if (r > 0) {
+                    src.append(buf, 0, r);
+                }
+            } while (r >= 0);
+
+            return src.toString();
         } catch (IOException ioe) {
             throw new NodeException("Can't read script: " + name + ": " + ioe, ioe);
+        }
+    }
+
+    protected CompiledScript loadFromSource(String name, ScriptEngine engine)
+    {
+        String source = loadSource(name);
+        try {
+            return ((Compilable)engine).compile(source);
+        } catch (ScriptException se) {
+            throw new NodeException("Can't compile script: " + name + ": " + se, se);
         }
     }
 
@@ -274,42 +269,80 @@ public class ModuleRegistry
     {
         if (internal) {
             ScriptModule m = internalModules.get(name);
-            return (m == null ? null : m.getScript(engine));
+            return (m == null ? null : m.getScript(engine, name));
         }
         ScriptModule m = builtInModules.get(name);
-        return (m == null ? null : m.getScript(engine));
+        return (m == null ? null : m.getScript(engine, name));
+    }
+
+    public String getModuleSource(String name, boolean internal)
+    {
+        if (internal) {
+            ScriptModule m = internalModules.get(name);
+            return (m == null ? null : m.getSource());
+        }
+        ScriptModule m = builtInModules.get(name);
+        return (m == null ? null : m.getSource());
+    }
+
+    public String wrapSource(String source, String name, String fileName)
+    {
+        return MODULE_WRAP_START_1 + name + MODULE_WRAP_START_2 +
+               source +
+               MODULE_WRAP_END +
+               SOURCE_URL + fileName;
     }
 
     public synchronized CompiledScript getMainScript(ScriptEngine engine)
     {
         if (mainScript == null) {
-            mainScript = loadFromSource("rowboat", implementation.getMainScript(), engine, false);
+            mainScript = loadFromSource(implementation.getMainScript(), engine);
         }
         return mainScript;
     }
 
+    public synchronized String getMainScriptSource()
+    {
+        if (mainScriptSource == null) {
+            mainScriptSource = loadSource(implementation.getMainScript());
+        }
+        return mainScriptSource;
+    }
+
     private class ScriptModule
     {
-        final String name;
         final String resourceName;
+        String source;
         CompiledScript script;
 
-        ScriptModule(String name, String resourceName)
+        ScriptModule(String resourceName)
         {
-            this.name = name;
             this.resourceName = resourceName;
+        }
+
+        synchronized String getSource()
+        {
+            if (source != null) {
+                return source;
+            }
+            source = loadSource(resourceName);
+            return source;
         }
 
         /**
          * Lazily load and compile the script.
          */
-        synchronized CompiledScript getScript(ScriptEngine engine)
+        synchronized CompiledScript getScript(ScriptEngine engine, String name)
         {
             if (script != null) {
                 return script;
             }
-            script = loadFromSource(name, resourceName, engine, true);
-            return script;
+            String s = wrapSource(getSource(), name, resourceName);
+            try {
+               return ((Compilable)engine).compile(s);
+            } catch (ScriptException se) {
+                throw new NodeException("Error compiling built-in script: {}", se);
+            }
         }
     }
 }

@@ -23,7 +23,7 @@ var EventEmitter = require('events').EventEmitter;
 var net = require('net');
 var util = require('util');
 var constants; // if (!constants) constants = process.binding('constants');
-var ProcessWrap = process.binding('trireme_process_wrap');
+var ProcessWrap = process.binding('process_wrap');
 
 var debug;
 var isDebug;
@@ -366,7 +366,7 @@ ChildProcess.prototype.spawn = function(options) {
       }).forEach(function(stdio) {
         stdio.socket.destroy();
       });
-      /* TODO Noderunner repeat for IPC...
+      /* Trireme/Rowboat handles IPC differently.
       acc.filter(function(stdio) {
         return stdio.type === 'pipe' || stdio.type === 'ipc';
       }).forEach(function(stdio) {
@@ -394,6 +394,7 @@ ChildProcess.prototype.spawn = function(options) {
       }
       acc.push({ type: 'fd', fd: fd });
     /*
+     Trireme/Rowboat handles handle wrapping differently.
     } else if (getHandleWrapType(stdio) || getHandleWrapType(stdio.handle) ||
                getHandleWrapType(stdio._handle)) {
       var handle = getHandleWrapType(stdio) ?
@@ -417,7 +418,15 @@ ChildProcess.prototype.spawn = function(options) {
 
   options.stdio = stdio;
 
+  if (isDebug) {
+    debug('Going to spawn ' + util.format(options.stdio));
+  }
+
   var r = this._handle.spawn(options);
+
+  if (isDebug) {
+    debug('Spawn result: ' + util.format(r));
+  }
 
   if (r) {
     // Close all opened fds on error
@@ -471,6 +480,10 @@ ChildProcess.prototype.spawn = function(options) {
 
   // Add .send() method and start listening for IPC data
   if (ipc !== undefined) setupChannel(this);
+
+  if (isDebug) {
+    debug('Final stdio array: ' + util.format(this.stdio));
+  }
 
   return r;
 };

@@ -12,7 +12,7 @@ function wrapCode(code, fileName) {
 NodeScript.runInThisContext = function(code, fileName) {
   var engine = process.getRuntime().getScriptEngine();
   // Load using Nashorn built-in JS function, which causes stack traces to work
-  return load({ script:  code, name: fileName });
+  return _nashornLoad({ script:  code, name: fileName });
 };
 
 NodeScript.runInNewContext = function(code, sandbox, fileName) {

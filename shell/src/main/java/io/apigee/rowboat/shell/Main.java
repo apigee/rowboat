@@ -25,6 +25,7 @@ import io.apigee.rowboat.NodeEnvironment;
 import io.apigee.rowboat.NodeException;
 import io.apigee.rowboat.NodeScript;
 import io.apigee.rowboat.ScriptStatus;
+import jdk.nashorn.api.scripting.NashornException;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -150,22 +151,12 @@ public class Main
 
     private static void printException(Throwable ee)
     {
-        ee.printStackTrace(System.err);
-        /*
-        if (ee instanceof JavaScriptException) {
-            Object value = ((JavaScriptException)ee).getValue();
-            Context.enter();
-            System.err.println(Context.toString(value));
-            Context.exit();
-        }
-        if (ee instanceof RhinoException) {
-            RhinoException re = (RhinoException)ee;
-            System.err.println(re.details());
-            System.err.println(re.getScriptStackTrace());
-        } else {
-            System.err.println(ee.getMessage());
+        System.err.println(ee.getMessage());
+        String scriptStack = NashornException.getScriptStackString(ee);
+        if (scriptStack.isEmpty()) {
             ee.printStackTrace(System.err);
+        } else {
+            System.err.println(scriptStack);
         }
-        */
     }
 }
