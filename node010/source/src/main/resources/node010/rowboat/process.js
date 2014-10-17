@@ -329,7 +329,7 @@ Process.prototype.umask = function(newMask) {
 };
 
 Process.prototype.uptime = function() {
-  return (System.currenTimeMillis() - this._startTime) / 1000;
+  return (System.currentTimeMillis() - this._startTime) / 1000;
 };
 
 Process.prototype.hrtime = function(time) {

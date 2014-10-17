@@ -108,7 +108,7 @@ public class Node010Implementation
             { "process", R + "process.js" },
             { "process_wrap", R + "process_wrap.js" },
             { "referenceable", R + "referenceable.js" },
-            { "slowbuffer", R + "slowbuffer.js" },
+            { "buffer", R + "slowbuffer.js" },
             { "stream_wrap", R + "stream_wrap.js" },
             { "tcp_wrap", R + "tcp_wrap.js" },
             { "timer_wrap", R + "timer_wrap.js" }
@@ -124,8 +124,6 @@ public class Node010Implementation
     @Override
     public Collection<Class<? extends NodeModule>> getInternalJavaModules()
     {
-        ArrayList<Class<? extends NodeModule>> cl = new ArrayList<>();
-        cl.add(InternalBufferModule.class);
-        return cl;
+        return Collections.emptyList();
     }
 }

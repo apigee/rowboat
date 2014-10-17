@@ -1,25 +1,41 @@
 var ScriptContext = Java.type('javax.script.ScriptContext');
 var SimpleBindings = Java.type('javax.script.SimpleBindings');
 
+var debugEnabled;
+var debug;
+if (process.env.NODE_DEBUG && /evals/.test(process.env.NODE_DEBUG)) {
+  debugEnabled = true;
+  debug = function(x) { console.log(x); }
+} else {
+  debugEnabled = false;
+  debug = function(x) {};
+}
+
 function NodeScript() {
 }
 exports.NodeScript = NodeScript;
 
 function wrapCode(code, fileName) {
-  return code + '//#scriptURL=' + fileName;
+  return code + '//# sourceURL=' + fileName;
 }
 
 NodeScript.runInThisContext = function(code, fileName) {
   var engine = process.getRuntime().getScriptEngine();
-  // Load using Nashorn built-in JS function, which causes stack traces to work
-  return _nashornLoad({ script:  code, name: fileName });
+  if (debugEnabled) {
+    debug('Evaluating code from ' + fileName + ' in global context');
+  }
+  // _nashornLoad({ script:  code, name: fileName });
+  return engine.eval(wrapCode(code, fileName));
 };
 
 NodeScript.runInNewContext = function(code, sandbox, fileName) {
   // Need to use the sandbox, so wrap the code manually
   var engine = process.getRuntime().getScriptEngine();
   // TODO change if we want to use compiled class cache
-  engine.eval(wrapCode(code, fileName), sandbox);
+  if (debugEnabled) {
+    debug('Evaluating code from ' + fileName + ' in ' + sandbox);
+  }
+  return engine.eval(wrapCode(code, fileName), sandbox);
 };
 
 function CompiledScript(code, fileName) {

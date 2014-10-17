@@ -2,6 +2,7 @@ package io.apigee.rowboat.nodetests;
 
 import io.apigee.rowboat.NodeEnvironment;
 import io.apigee.rowboat.NodeScript;
+import io.apigee.rowboat.ScriptFuture;
 import io.apigee.rowboat.ScriptStatus;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -293,11 +295,18 @@ public class JavaScriptTest
 
         NodeScript s = env.createScript(fileName.getPath());
         s.setNodeVersion(nodeVersion);
-        ScriptStatus result = s.execute().get(TEST_TIMEOUT_SECS, TimeUnit.SECONDS);
+        ScriptFuture future = s.execute();
 
-        int ec = result.getExitCode();
-        assertEquals(0, result.getExitCode());
-        return ec;
+        try {
+            ScriptStatus result = future.get(TEST_TIMEOUT_SECS, TimeUnit.SECONDS);
+
+            int ec = result.getExitCode();
+            assertEquals(0, result.getExitCode());
+            return ec;
+        } catch (TimeoutException te) {
+            future.cancel(true);
+            throw te;
+        }
     }
 
     private static final class Exclusion

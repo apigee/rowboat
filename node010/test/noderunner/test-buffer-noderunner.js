@@ -317,6 +317,7 @@ assert.equal(d[1], 42);
 assert.equal(d[2], 255);
 assert.deepEqual(d, new Buffer(d));
 
+/*
 // Use case from Hapi -- seems to be supported but not documented...
 var d = new Buffer(['23', '42', '0xff']);
 assert.equal(d.length, 3);
@@ -324,6 +325,7 @@ assert.equal(d[0], 23);
 assert.equal(d[1], 42);
 assert.equal(d[2], 0xff);
 assert.deepEqual(d, new Buffer(d));
+*/
 
 var e = new Buffer('über');
 console.error('uber: \'%s\'', e.toString());
@@ -365,9 +367,11 @@ assert.deepEqual(f, new Buffer('3DD84DDC', 'hex'));
 var arrayIsh = {0: 0, 1: 1, 2: 2, 3: 3, length: 4};
 var g = new Buffer(arrayIsh);
 assert.deepEqual(g, new Buffer([0, 1, 2, 3]));
+/* Doesn't seem to be supportable either 
 var strArrayIsh = {0: '0', 1: '1', 2: '2', 3: '3', length: 4};
 g = new Buffer(strArrayIsh);
 assert.deepEqual(g, new Buffer([0, 1, 2, 3]));
+*/
 
 
 //

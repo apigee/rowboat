@@ -17,19 +17,23 @@
 // NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
 // DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-/*
- * Rowboat:
- *   This class has been modified for Rowboat because of the way that Nashorn (currently) handles
- *   indexed properties.
+/**
+ * Rowboat: This class has been modified to use Nashorn for storing the underlying byte array
+ * in Java.
  */
 
-var JavaSlowBuffer = Java.type('io.apigee.rowboat.node010.classes.SlowBuffer');
 var SlowBuffer = process.binding('buffer').SlowBuffer;
 var assert = require('assert');
 
 exports.INSPECT_MAX_BYTES = 50;
+
+// Make SlowBuffer inherit from Buffer.
+// This is an exception to the rule that __proto__ is not allowed in core.
+SlowBuffer.prototype.__proto__ = Buffer.prototype;
+
 
 function clamp(index, len, defaultValue) {
   if (typeof index !== 'number') return defaultValue;
@@ -47,20 +51,8 @@ function toHex(n) {
   return n.toString(16);
 }
 
-var slowProto = {};
-var proto = {};
 
-function constructSlowBuffer(b) {
-  for (p in proto) {
-    b[p] = proto[p];
-  }
-  for (p in slowProto) {
-    b[p] = slowProto[p];
-  }
-}
-JavaSlowBuffer.setConstructor(SlowBuffer, constructSlowBuffer);
-
-slowProto.toString = function(encoding, start, end) {
+SlowBuffer.prototype.toString = function(encoding, start, end) {
   encoding = String(encoding || 'utf8').toLowerCase();
   start = +start || 0;
   if (typeof end !== 'number') end = this.length;
@@ -99,7 +91,7 @@ slowProto.toString = function(encoding, start, end) {
 };
 
 
-slowProto.write = function(string, offset, length, encoding) {
+SlowBuffer.prototype.write = function(string, offset, length, encoding) {
   // Support both (string, offset, length, encoding)
   // and the legacy (string, encoding, offset, length)
   if (isFinite(offset)) {
@@ -156,7 +148,7 @@ slowProto.write = function(string, offset, length, encoding) {
 
 
 // slice(start, end)
-slowProto.slice = function(start, end) {
+SlowBuffer.prototype.slice = function(start, end) {
   var len = this.length;
   start = clamp(start, len, 0);
   end = clamp(end, len, len);
@@ -242,7 +234,13 @@ function Buffer(subject, encoding, offset) {
       }
     }
   }
+
+  SlowBuffer.makeFastBuffer(this.parent, this, this.offset, this.length);
 }
+
+Buffer.fromJava = function(nioBuf) {
+  return new SlowBuffer(nioBuf);
+};
 
 function isArrayIsh(subject) {
   return Array.isArray(subject) ||
@@ -287,23 +285,9 @@ function allocPool() {
 
 // Static methods
 Buffer.isBuffer = function isBuffer(b) {
-  return ((b instanceof Buffer) || (b instanceof SlowBuffer));
+  return b instanceof Buffer;
 };
 
-// Convert the buffer to a ByteBuffer that represents only its own content.
-// Returns an object that can only be passed to Java code
-Buffer.prototype.toJava = function() {
-  return JavaSlowBuffer.convertBuffer(this.parent, this.offset, this.length);
-};
-
-// Convert a Java ByteBuffer to a buffer that shares content. (If you need to copy it,
-// copy it in Java before calling it.)
-Buffer.fromJava = function(b) {
-  var sb = new SlowBuffer(b);
-  // This is how "slice" does it.
-  // Does this end up actually copying the content, or sharing it? Need to check.
-  return new Buffer(sb, sb.length, 0);
-}
 
 // Inspect
 Buffer.prototype.inspect = function inspect() {
@@ -321,7 +305,6 @@ Buffer.prototype.inspect = function inspect() {
 
   return '<' + name + ' ' + out.join(' ') + '>';
 };
-proto.inspect = Buffer.prototype.inspect;
 
 
 Buffer.prototype.get = function get(offset) {
@@ -329,14 +312,14 @@ Buffer.prototype.get = function get(offset) {
     throw new RangeError('offset is out of bounds');
   return this.parent[this.offset + offset];
 };
-proto.get = Buffer.prototype.get;
+
 
 Buffer.prototype.set = function set(offset, v) {
   if (offset < 0 || offset >= this.length)
     throw new RangeError('offset is out of bounds');
   return this.parent[this.offset + offset] = v;
 };
-proto.set = Buffer.prototype.set;
+
 
 // write(string, offset = 0, length = buffer.length-offset, encoding = 'utf8')
 Buffer.prototype.write = function(string, offset, length, encoding) {
@@ -413,7 +396,7 @@ Buffer.prototype.write = function(string, offset, length, encoding) {
 Buffer.prototype.toJSON = function() {
   return Array.prototype.slice.call(this, 0);
 };
-proto.toJSON = Buffer.prototype.toJSON;
+
 
 // toString(encoding, start=0, end=buffer.length)
 Buffer.prototype.toString = function(encoding, start, end) {
@@ -498,7 +481,7 @@ Buffer.prototype.fill = function fill(value, start, end) {
                           start + this.offset,
                           end + this.offset);
 };
-proto.fill = Buffer.prototype.fill;
+
 
 Buffer.concat = function(list, length) {
   if (!Array.isArray(list)) {
@@ -560,7 +543,7 @@ Buffer.prototype.copy = function(target, target_start, start, end) {
                           start + this.offset,
                           end + this.offset);
 };
-proto.copy = Buffer.prototype.copy;
+
 
 // slice(start, end)
 Buffer.prototype.slice = function(start, end) {
@@ -576,32 +559,27 @@ Buffer.prototype.slice = function(start, end) {
 Buffer.prototype.utf8Slice = function(start, end) {
   return this.toString('utf8', start, end);
 };
-proto.utf8Slice = Buffer.prototype.utf8Slice;
 
 Buffer.prototype.binarySlice = function(start, end) {
   return this.toString('binary', start, end);
 };
-proto.binarySlice = Buffer.prototype.binarySlice;
 
 Buffer.prototype.asciiSlice = function(start, end) {
   return this.toString('ascii', start, end);
 };
-proto.asciiSlice = Buffer.prototype.asciiSlice;
 
 Buffer.prototype.utf8Write = function(string, offset) {
   return this.write(string, offset, 'utf8');
 };
-proto.utf8Write = Buffer.prototype.utf8Write;
 
 Buffer.prototype.binaryWrite = function(string, offset) {
   return this.write(string, offset, 'binary');
 };
-proto.binaryWrite = Buffer.prototype.binaryWrite;
 
 Buffer.prototype.asciiWrite = function(string, offset) {
   return this.write(string, offset, 'ascii');
 };
-proto.asciiWrite = Buffer.prototype.asciiWrite;
+
 
 /*
  * Need to make sure that buffer isn't trying to write out of bounds.
@@ -620,114 +598,43 @@ Buffer.prototype.readUInt8 = function(offset, noAssert) {
     checkOffset(offset, 1, this.length);
   return this[offset];
 };
-proto.readUInt8 = Buffer.prototype.readUInt8;
-
-function readUInt16(buffer, offset, isBigEndian) {
-  var val = 0;
-  if (isBigEndian) {
-    val = buffer[offset] << 8;
-    val |= buffer[offset + 1];
-  } else {
-    val = buffer[offset];
-    val |= buffer[offset + 1] << 8;
-  }
-
-  return val;
-}
 
 
 Buffer.prototype.readUInt16LE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 2, this.length);
-  return readUInt16(this, offset, false, noAssert);
+  return this[offset] | (this[offset + 1] << 8);
 };
-proto.readUInt16LE = Buffer.prototype.readUInt16LE;
+
 
 Buffer.prototype.readUInt16BE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 2, this.length);
-  return readUInt16(this, offset, true, noAssert);
+  return (this[offset] << 8) | this[offset + 1];
 };
-proto.readUInt16BE = Buffer.prototype.readUInt16BE;
-
-function readUInt32(buffer, offset, isBigEndian, noAssert) {
-  var val = 0;
-
-  if (isBigEndian) {
-    val = buffer[offset + 1] << 16;
-    val |= buffer[offset + 2] << 8;
-    val |= buffer[offset + 3];
-    val = val + (buffer[offset] << 24 >>> 0);
-  } else {
-    val = buffer[offset + 2] << 16;
-    val |= buffer[offset + 1] << 8;
-    val |= buffer[offset];
-    val = val + (buffer[offset + 3] << 24 >>> 0);
-  }
-
-  return val;
-}
 
 
 Buffer.prototype.readUInt32LE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 4, this.length);
-  return readUInt32(this, offset, false, noAssert);
+
+  return ((this[offset]) |
+      (this[offset + 1] << 8) |
+      (this[offset + 2] << 16)) +
+      (this[offset + 3] * 0x1000000);
 };
-proto.redUInt32LE = Buffer.prototype.readUInt32LE;
+
 
 Buffer.prototype.readUInt32BE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 4, this.length);
-  return readUInt32(this, offset, true, noAssert);
-};
-proto.readUInt32BE = Buffer.prototype.readUInt32BE;
 
-/*
- * Signed integer types, yay team! A reminder on how two's complement actually
- * works. The first bit is the signed bit, i.e. tells us whether or not the
- * number should be positive or negative. If the two's complement value is
- * positive, then we're done, as it's equivalent to the unsigned representation.
- *
- * Now if the number is positive, you're pretty much done, you can just leverage
- * the unsigned translations and return those. Unfortunately, negative numbers
- * aren't quite that straightforward.
- *
- * At first glance, one might be inclined to use the traditional formula to
- * translate binary numbers between the positive and negative values in two's
- * complement. (Though it doesn't quite work for the most negative value)
- * Mainly:
- *  - invert all the bits
- *  - add one to the result
- *
- * Of course, this doesn't quite work in Javascript. Take for example the value
- * of -128. This could be represented in 16 bits (big-endian) as 0xff80. But of
- * course, Javascript will do the following:
- *
- * > ~0xff80
- * -65409
- *
- * Whoh there, Javascript, that's not quite right. But wait, according to
- * Javascript that's perfectly correct. When Javascript ends up seeing the
- * constant 0xff80, it has no notion that it is actually a signed number. It
- * assumes that we've input the unsigned value 0xff80. Thus, when it does the
- * binary negation, it casts it into a signed value, (positive 0xff80). Then
- * when you perform binary negation on that, it turns it into a negative number.
- *
- * Instead, we're going to have to use the following general formula, that works
- * in a rather Javascript friendly way. I'm glad we don't support this kind of
- * weird numbering scheme in the kernel.
- *
- * (BIT-MAX - (unsigned)val + 1) * -1
- *
- * The astute observer, may think that this doesn't make sense for 8-bit numbers
- * (really it isn't necessary for them). However, when you get 16-bit numbers,
- * you do. Let's go back to our prior example and see how this will look:
- *
- * (0xffff - 0xff80 + 1) * -1
- * (0x007f + 1) * -1
- * (0x0080) * -1
- */
+  return (this[offset] * 0x1000000) +
+      ((this[offset + 1] << 16) |
+      (this[offset + 2] << 8) |
+      this[offset + 3]);
+};
+
 
 Buffer.prototype.readInt8 = function(offset, noAssert) {
   if (!noAssert)
@@ -736,81 +643,72 @@ Buffer.prototype.readInt8 = function(offset, noAssert) {
     return (this[offset]);
   return ((0xff - this[offset] + 1) * -1);
 };
-proto.readInt8 = Buffer.prototype.readInt8;
-
-function readInt16(buffer, offset, isBigEndian) {
-  var val = readUInt16(buffer, offset, isBigEndian);
-
-  if (!(val & 0x8000))
-    return val;
-  return (0xffff - val + 1) * -1;
-}
 
 
 Buffer.prototype.readInt16LE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 2, this.length);
-  return readInt16(this, offset, false);
+  var val = this[offset] | (this[offset + 1] << 8);
+  return (val & 0x8000) ? val | 0xFFFF0000 : val;
 };
-proto.redInt16LE = Buffer.prototype.readInt16LE;
+
 
 Buffer.prototype.readInt16BE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 2, this.length);
-  return readInt16(this, offset, true);
+  var val = this[offset + 1] | (this[offset] << 8);
+  return (val & 0x8000) ? val | 0xFFFF0000 : val;
 };
-proto.readInt16BE = Buffer.prototype.readInt16BE;
-
-function readInt32(buffer, offset, isBigEndian) {
-  var val = readUInt32(buffer, offset, isBigEndian);
-
-  if (!(val & 0x80000000))
-    return (val);
-  return (0xffffffff - val + 1) * -1;
-}
 
 
 Buffer.prototype.readInt32LE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 4, this.length);
-  return readInt32(this, offset, false);
+
+  return (this[offset]) |
+      (this[offset + 1] << 8) |
+      (this[offset + 2] << 16) |
+      (this[offset + 3] << 24);
 };
-proto.readInt32LE = Buffer.prototype.readInt32LE;
+
 
 Buffer.prototype.readInt32BE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 4, this.length);
-  return readInt32(this, offset, true);
+
+  return (this[offset] << 24) |
+      (this[offset + 1] << 16) |
+      (this[offset + 2] << 8) |
+      (this[offset + 3]);
 };
-proto.readInt32BE = Buffer.prototype.readInt32BE;
 
 Buffer.prototype.readFloatLE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 4, this.length);
   return this.parent.readFloatLE(this.offset + offset, !!noAssert);
 };
-proto.readFloatLE = Buffer.prototype.readFloatLE;
+
 
 Buffer.prototype.readFloatBE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 4, this.length);
   return this.parent.readFloatBE(this.offset + offset, !!noAssert);
 };
-proto.readFloatBE = Buffer.prototype.readFloatBE;
+
 
 Buffer.prototype.readDoubleLE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 8, this.length);
   return this.parent.readDoubleLE(this.offset + offset, !!noAssert);
 };
-proto.readDoubleLE = Buffer.prototype.readDoubleLE;
+
 
 Buffer.prototype.readDoubleBE = function(offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 8, this.length);
   return this.parent.readDoubleBE(this.offset + offset, !!noAssert);
 };
-proto.readDoubleBE = Buffer.prototype.readDoubleBE;
+
 
 function checkInt(buffer, value, offset, ext, max, min) {
   if ((value % 1) !== 0 || value > max || value < min)
@@ -827,98 +725,43 @@ Buffer.prototype.writeUInt8 = function(value, offset, noAssert) {
     checkInt(this, value, offset, 1, 0xff, 0);
   this[offset] = value;
 };
-proto.writeUInt8 = Buffer.prototype.writeUInt8;
-
-function writeUInt16(buffer, value, offset, isBigEndian) {
-  if (isBigEndian) {
-    buffer[offset] = (value & 0xff00) >>> 8;
-    buffer[offset + 1] = value & 0x00ff;
-  } else {
-    buffer[offset + 1] = (value & 0xff00) >>> 8;
-    buffer[offset] = value & 0x00ff;
-  }
-}
 
 
 Buffer.prototype.writeUInt16LE = function(value, offset, noAssert) {
   if (!noAssert)
     checkInt(this, value, offset, 2, 0xffff, 0);
-  writeUInt16(this, value, offset, false);
+  this[offset] = value;
+  this[offset + 1] = (value >>> 8);
 };
-proto.writeUInt16LE = Buffer.prototype.writeUInt16LE;
+
 
 Buffer.prototype.writeUInt16BE = function(value, offset, noAssert) {
   if (!noAssert)
     checkInt(this, value, offset, 2, 0xffff, 0);
-  writeUInt16(this, value, offset, true);
+  this[offset] = (value >>> 8);
+  this[offset + 1] = value;
 };
-proto.writeUInt16BE = Buffer.prototype.writeUInt16BE;
-
-function writeUInt32(buffer, value, offset, isBigEndian) {
-  if (isBigEndian) {
-    buffer[offset] = (value >>> 24) & 0xff;
-    buffer[offset + 1] = (value >>> 16) & 0xff;
-    buffer[offset + 2] = (value >>> 8) & 0xff;
-    buffer[offset + 3] = value & 0xff;
-  } else {
-    buffer[offset + 3] = (value >>> 24) & 0xff;
-    buffer[offset + 2] = (value >>> 16) & 0xff;
-    buffer[offset + 1] = (value >>> 8) & 0xff;
-    buffer[offset] = value & 0xff;
-  }
-}
 
 
 Buffer.prototype.writeUInt32LE = function(value, offset, noAssert) {
   if (!noAssert)
     checkInt(this, value, offset, 4, 0xffffffff, 0);
-  writeUInt32(this, value, offset, false);
+  this[offset + 3] = (value >>> 24);
+  this[offset + 2] = (value >>> 16);
+  this[offset + 1] = (value >>> 8);
+  this[offset] = value;
 };
-proto.writeUInt32LE = Buffer.prototype.writeUInt32LE;
+
 
 Buffer.prototype.writeUInt32BE = function(value, offset, noAssert) {
   if (!noAssert)
     checkInt(this, value, offset, 4, 0xffffffff, 0);
-  writeUInt32(this, value, offset, true);
+  this[offset] = (value >>> 24);
+  this[offset + 1] = (value >>> 16);
+  this[offset + 2] = (value >>> 8);
+  this[offset + 3] = value;
 };
-proto.writeUInt32BE = Buffer.prototype.writeUInt32BE;
 
-/*
- * We now move onto our friends in the signed number category. Unlike unsigned
- * numbers, we're going to have to worry a bit more about how we put values into
- * arrays. Since we are only worrying about signed 32-bit values, we're in
- * slightly better shape. Unfortunately, we really can't do our favorite binary
- * & in this system. It really seems to do the wrong thing. For example:
- *
- * > -32 & 0xff
- * 224
- *
- * What's happening above is really: 0xe0 & 0xff = 0xe0. However, the results of
- * this aren't treated as a signed number. Ultimately a bad thing.
- *
- * What we're going to want to do is basically create the unsigned equivalent of
- * our representation and pass that off to the wuint* functions. To do that
- * we're going to do the following:
- *
- *  - if the value is positive
- *      we can pass it directly off to the equivalent wuint
- *  - if the value is negative
- *      we do the following computation:
- *         mb + val + 1, where
- *         mb   is the maximum unsigned value in that byte size
- *         val  is the Javascript negative integer
- *
- *
- * As a concrete value, take -128. In signed 16 bits this would be 0xff80. If
- * you do out the computations:
- *
- * 0xffff - 128 + 1
- * 0xffff - 127
- * 0xff80
- *
- * You can then encode this value as the signed version. This is really rather
- * hacky, but it should work and get the job done which is our goal here.
- */
 
 Buffer.prototype.writeInt8 = function(value, offset, noAssert) {
   if (!noAssert)
@@ -926,64 +769,67 @@ Buffer.prototype.writeInt8 = function(value, offset, noAssert) {
   if (value < 0) value = 0xff + value + 1;
   this[offset] = value;
 };
-proto.writeInt8 = Buffer.prototype.writeInt8;
+
 
 Buffer.prototype.writeInt16LE = function(value, offset, noAssert) {
   if (!noAssert)
     checkInt(this, value, offset, 2, 0x7fff, -0x8000);
-  if (value < 0) value = 0xffff + value + 1;
-  writeUInt16(this, value, offset, false);
+  this[offset] = value;
+  this[offset + 1] = (value >>> 8);
 };
-proto.writeInt16LE = Buffer.prototype.writeInt16LE;
+
 
 Buffer.prototype.writeInt16BE = function(value, offset, noAssert) {
   if (!noAssert)
     checkInt(this, value, offset, 2, 0x7fff, -0x8000);
-  if (value < 0) value = 0xffff + value + 1;
-  writeUInt16(this, value, offset, true);
+  this[offset] = (value >>> 8);
+  this[offset + 1] = value;
 };
-proto.writeInt16BE = Buffer.prototype.writeInt16BE;
+
 
 Buffer.prototype.writeInt32LE = function(value, offset, noAssert) {
   if (!noAssert)
     checkInt(this, value, offset, 4, 0x7fffffff, -0x80000000);
-  if (value < 0) value = 0xffffffff + value + 1;
-  writeUInt32(this, value, offset, false);
+  this[offset] = value;
+  this[offset + 1] = (value >>> 8);
+  this[offset + 2] = (value >>> 16);
+  this[offset + 3] = (value >>> 24);
 };
-proto.writeInt32LE = Buffer.prototype.writeInt32LE;
+
 
 Buffer.prototype.writeInt32BE = function(value, offset, noAssert) {
   if (!noAssert)
     checkInt(this, value, offset, 4, 0x7fffffff, -0x80000000);
-  if (value < 0) value = 0xffffffff + value + 1;
-  writeUInt32(this, value, offset, true);
+  this[offset] = (value >>> 24);
+  this[offset + 1] = (value >>> 16);
+  this[offset + 2] = (value >>> 8);
+  this[offset + 3] = value;
 };
-proto.writeInt32BE = Buffer.prototype.writeInt32BE;
+
 
 Buffer.prototype.writeFloatLE = function(value, offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 4, this.length);
   this.parent.writeFloatLE(value, this.offset + offset, !!noAssert);
 };
-proto.writeFloatLE = Buffer.prototype.writeFloatLE;
+
 
 Buffer.prototype.writeFloatBE = function(value, offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 4, this.length);
   this.parent.writeFloatBE(value, this.offset + offset, !!noAssert);
 };
-proto.writeFloatBE = Buffer.prototype.writeFloatBE;
+
 
 Buffer.prototype.writeDoubleLE = function(value, offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 8, this.length);
   this.parent.writeDoubleLE(value, this.offset + offset, !!noAssert);
 };
-proto.writeDoubleLE = Buffer.prototype.writeDoubleLE;
+
 
 Buffer.prototype.writeDoubleBE = function(value, offset, noAssert) {
   if (!noAssert)
     checkOffset(offset, 8, this.length);
   this.parent.writeDoubleBE(value, this.offset + offset, !!noAssert);
 };
-proto.writeDoubleBE = Buffer.prototype.writeDoubleBE;

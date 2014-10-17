@@ -1,15 +1,18 @@
 var assert = require('assert');
 var SlowBuffer = require('buffer').SlowBuffer;
 
-var ByteBuffer = Java.type('java.nio.ByteBuffer');
-
 var buf1 = Buffer(1024);
 assert.equal(buf1.length, 1024);
 assert(buf1 instanceof Buffer);
+assert.equal(buf1[0], 0);
+assert.equal(buf1[1023], 0);
+
 var buf1a = new Buffer(1024);
 assert.equal(buf1a.length, 1024);
 assert(buf1a instanceof Buffer);
 assert(Buffer.isBuffer(buf1));
+assert.equal(buf1a[0], 0);
+assert.equal(buf1a[1023], 0);
 
 var slowBuf1 = SlowBuffer(1024);
 assert.equal(slowBuf1.length, 1024);
@@ -29,6 +32,7 @@ assert.ok(Buffer.isEncoding('utf8'));
 assert.ok(!Buffer.isEncoding('klingon'));
 
 var uberAscii = new Buffer('über', 'ascii');
+assert.equal(uberAscii.length, 4);
 console.log('One is ' + uberAscii[0]);
 console.log('Two is ' + uberAscii[1]);
 console.log('Three is ' + uberAscii[2]);
