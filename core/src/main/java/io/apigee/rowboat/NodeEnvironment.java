@@ -23,12 +23,12 @@ package io.apigee.rowboat;
 
 import io.apigee.rowboat.internal.ModuleRegistry;
 import io.apigee.rowboat.internal.SoftClassCache;
-import io.apigee.rowboat.internal.VersionMatcher;
 import io.apigee.rowboat.spi.NodeImplementation;
+import io.apigee.trireme.kernel.NodeVersion;
+import io.apigee.trireme.kernel.VersionMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;

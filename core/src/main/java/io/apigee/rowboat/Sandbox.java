@@ -21,6 +21,8 @@
  */
 package io.apigee.rowboat;
 
+import io.apigee.trireme.kernel.net.NetworkPolicy;
+
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.AbstractMap;

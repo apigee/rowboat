@@ -20,7 +20,7 @@
  * SOFTWARE.
  */
 
-var Charsets = Java.type('io.apigee.rowboat.internal.Charsets');
+var Charsets = Java.type('io.apigee.trireme.kernel.Charsets');
 
 var Referenceable = process.binding('referenceable').Referenceable;
 var util = require('util');
@@ -76,9 +76,10 @@ Stream.prototype.writeBuffer = function(buf) {
     _handle: this
   };
   var self = this;
-  var len = this.handle.write(buf.toJava(), function(err) {
-    onWriteComplete(self, req, err);
+  var len = this.handle.write(buf.toJava(), function(errCode) {
+    onWriteComplete(self, req, errCode);
   });
+  // net.js expects that we will update "bytes" before the callback is called.
   req.bytes = len;
   this.bytes += len;
   return req;
@@ -100,8 +101,8 @@ function writeString(self, s, cs) {
   var req = {
     _handle: self
   };
-  var len = self.handle.write(s, cs, function(err) {
-    onWriteComplete(self, req, err);
+  var len = self.handle.write(s, cs, function(errCode) {
+    onWriteComplete(self, req, errCode);
   });
   req.bytes = len;
   self.bytes += len;
@@ -112,7 +113,7 @@ function onWriteComplete(self, req, err) {
   // This version of Node expects to set "oncomplete" only after write returns.
   setImmediate(function() {
     if (req.oncomplete) {
-      req.oncomplete.call(self, err, req._handle, req);
+      req.oncomplete.call(self, process.convertJavaErrno(err), req._handle, req);
     }
   });
 }
@@ -130,7 +131,7 @@ Stream.prototype.readStop = function() {
 
 function onReadComplete(self, err, javaBuf) {
   if (self.onread) {
-    process._errno = (err ? err : 0);
+    process._errno = (err ? process.convertJavaErrno(err) : 0);
     if (javaBuf) {
       var buf = Buffer.fromJava(javaBuf);
       self.onread.call(self, buf, 0, buf.length);

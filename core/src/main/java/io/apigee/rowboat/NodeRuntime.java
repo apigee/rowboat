@@ -21,6 +21,7 @@
  */
 package io.apigee.rowboat;
 
+import io.apigee.trireme.kernel.GenericNodeRuntime;
 import jdk.nashorn.api.scripting.JSObject;
 
 import java.io.Closeable;
@@ -35,12 +36,8 @@ import java.util.concurrent.ExecutorService;
  */
 
 public interface NodeRuntime
+    extends GenericNodeRuntime
 {
-    /**
-     * This is the name of a thread slot on the Context object where a pointer to this object is stored.
-     */
-    static final String RUNNER_SLOT = "runner";
-
     /**
      * Return the Environment used to create this script.
      */
@@ -61,30 +58,6 @@ public interface NodeRuntime
      * May be used when one native module depends on another.
      */
     //Object require(String modName);
-
-    /**
-     * Increment the "pin count" on this script. A script with a pin count of zero will remain running and in
-     * an idle state until there is work to do. Once the pin count again reaches zero the script may exit.
-     */
-    void pin();
-
-    /**
-     * Decrement the "pin count," which may cause the script to exit at the end of the current function.
-     */
-    void unPin();
-
-    /**
-     * Return the thread pool that may be used to run short-lived asyncrhonous tasks. Tasks submitted to this
-     * pool may queue.
-     */
-    ExecutorService getAsyncPool();
-
-    /**
-     * Return the thread pool that may be used to run tasks that should start immediately in a new thread
-     * regardless of the thread pool size. This thread pool should be used sparingly to start long-lived
-     * threads, for instance to read an I/O stream with a synchronous interface.
-     */
-    ExecutorService getUnboundedPool();
 
     /**
      * Put a task on the tick queue to be run in the main script thread. This method may be called from
@@ -146,21 +119,4 @@ public interface NodeRuntime
      */
     String reverseTranslatePath(String path)
         throws IOException;
-
-    /**
-     * Put an object on a list of handles that will be automatically closed when the script exits.
-     * This prevents resource leaks in multi-tenant script environments. Like many other things this
-     * method is not thread-safe and must be called from inside the main script thread.
-     */
-    void registerCloseable(Closeable c);
-
-    /**
-     * Remove the object from the list of handles that will be closed.
-     */
-    void unregisterCloseable(Closeable c);
-
-    /**
-     * Get the network selector -- internal only.
-     */
-    Selector getSelector();
 }

@@ -23,7 +23,7 @@
 var Stream = process.binding('stream_wrap').Stream;
 var util = require('util');
 
-var NIOSocketHandle = Java.type('io.apigee.rowboat.handles.NIOSocketHandle');
+var NIOSocketHandle = Java.type('io.apigee.trireme.kernel.handles.NIOSocketHandle');
 
 var debug;
 if (process.env.NODE_DEBUG && /net/.test(process.env.NODE_DEBUG)) {
@@ -64,11 +64,11 @@ TCP.prototype.toString = function() {
 function bind(address, port) {
   try {
     this.handle.bind(address, port);
-    process.errno = 0;
+    process._errno = 0;
     return undefined;
   } catch (e) {
-    process.errno = process.getJavaErrno(e);
-    return process.errno;
+    process._errno = process.getJavaErrno(e);
+    return process._errno;
   }
 }
 TCP.prototype.bind = bind;
@@ -78,14 +78,17 @@ TCP.prototype.listen = function(backlog) {
   try {
     debug(this.id + ': listen');
     var self = this;
-    this.handle.listen(backlog, function(sockHandle) {
-      onConnection(self, sockHandle);
+    this.handle.listen(backlog, function(err, sockHandle) {
+      if (!err) {
+        // Nothing to do on an uncaught accept error right now
+        onConnection(self, sockHandle);
+      }
     });
-    process.errno = 0;
+    process._errno = 0;
     return undefined;
   } catch (e) {
-    process.errno = process.getJavaErrno(e);
-    return process.errno;
+    process._errno = process.getJavaErrno(e);
+    return process._errno;
   }
 };
 
@@ -102,23 +105,27 @@ function connect(host, port) {
   try {
     debug(this.id + ': connect');
     var self = this;
-    this.handle.connect(host, port, function(err) {
-      onConnectComplete(self, req, err);
+    this.handle.connect(host, port, function(errCode) {
+      onConnectComplete(self, req, errCode);
     });
-    process.errno = 0;
+    process._errno = 0;
     return req;
   } catch (e) {
-    process.errno = process.getJavaErrno(e);
+    process._errno = process.getJavaErrno(e);
     return null;
   }
 }
 TCP.prototype.connect = connect;
 TCP.prototype.connect6 = connect;
 
-function onConnectComplete(self, req, err) {
+function onConnectComplete(self, req, errCode) {
   debug(self.id + ': onConnectComplete self = ' + self);
   if (req.oncomplete) {
-    req.oncomplete.call(self, err, self, req, true, true);
+    // net.js expects an integer error code this time, not a string
+    if (errCode !== 0) {
+      process._errno = errCode;
+    }
+    req.oncomplete.call(self, errCode, self, req, true, true);
   }
 }
 
@@ -128,8 +135,8 @@ TCP.prototype.shutdown = function() {
   };
   var self = this;
   try {
-    this.handle.shutdown(function(err) {
-      onShutdownComplete(self, req, err);
+    this.handle.shutdown(function(errCode) {
+      onShutdownComplete(self, req, errCode);
     });
     process._errno = 0;
     return req;
@@ -140,10 +147,11 @@ TCP.prototype.shutdown = function() {
   }
 };
 
-function onShutdownComplete(self, req, err) {
+function onShutdownComplete(self, req, errCode) {
   // This version of Node expects to set "oncomplete" only after write returns.
   setImmediate(function() {
     if (req.oncomplete) {
+      var err = process.convertJavaErrno(errCode);
       req.oncomplete.call(self, err, req._handle, req);
     }
   });

@@ -22,6 +22,9 @@
 
 package io.apigee.rowboat.internal;
 
+import io.apigee.trireme.kernel.ErrorCodes;
+import io.apigee.trireme.kernel.OSException;
+import io.apigee.trireme.kernel.Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +74,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -95,32 +97,32 @@ public class Filesystem
     }
 
     private Path translatePath(String path)
-        throws NodeOSException
+        throws OSException
     {
         File trans = runtime.translatePath(path);
         if (trans == null) {
-            throw new NodeOSException(Constants.ENOENT, path);
+            throw new OSException(ErrorCodes.ENOENT, path);
         }
         return Paths.get(trans.getPath());
     }
 
-    private String getErrorCode(Throwable ioe)
+    private int getErrorCode(Throwable ioe)
     {
-        String code = Constants.EIO;
+        int code = ErrorCodes.EIO;
         if (ioe instanceof FileNotFoundException) {
-            code = Constants.ENOENT;
+            code = ErrorCodes.ENOENT;
         } else if (ioe instanceof AccessDeniedException) {
-            code = Constants.EPERM;
+            code = ErrorCodes.EPERM;
         } else if (ioe instanceof DirectoryNotEmptyException) {
-            code = Constants.ENOTEMPTY;
+            code = ErrorCodes.ENOTEMPTY;
         } else if (ioe instanceof FileAlreadyExistsException) {
-            code = Constants.EEXIST;
+            code = ErrorCodes.EEXIST;
         } else if (ioe instanceof NoSuchFileException) {
-            code = Constants.ENOENT;
+            code = ErrorCodes.ENOENT;
         } else if (ioe instanceof NotDirectoryException) {
-            code = Constants.ENOTDIR;
+            code = ErrorCodes.ENOTDIR;
         } else if (ioe instanceof NotLinkException) {
-            code = Constants.EINVAL;
+            code = ErrorCodes.EINVAL;
         }
         if (log.isDebugEnabled()) {
             log.debug("File system error {} = code {}", ioe, code);
@@ -168,6 +170,7 @@ public class Filesystem
     }
 
     private Map<String, Object> doStat(Path p, boolean noFollow)
+        throws OSException
     {
         try {
             Map<String, Object> attrs;
@@ -191,13 +194,13 @@ public class Filesystem
             if (log.isTraceEnabled()) {
                 log.trace("stat {} (nofollow = {}) = {}", p, noFollow, ioe);
             }
-            throw new NodeOSException(getErrorCode(ioe), ioe, p.toString());
+            throw new OSException(getErrorCode(ioe), ioe, p.toString());
         }
     }
 
     @SuppressWarnings("unused")
     public Map<String, Object> stat(String path, boolean noFollow)
-        throws NodeOSException
+        throws OSException
     {
         Path p = translatePath(path);
         return doStat(p, noFollow);
@@ -205,7 +208,7 @@ public class Filesystem
 
     @SuppressWarnings("unused")
     public Map<String, Object> fstat(int fd)
-        throws NodeOSException
+        throws OSException
     {
         FileHandle fh = ensureHandle(fd);
         return doStat(fh.path, fh.noFollow);
@@ -213,6 +216,7 @@ public class Filesystem
 
     @SuppressWarnings("unused")
     public int makeMode(Map<String, Object> attrs, String path)
+        throws OSException
     {
         int mode = 0;
 
@@ -289,7 +293,7 @@ public class Filesystem
 
     @SuppressWarnings("unused")
     public int open(String pathStr, int flags, int mode)
-        throws NodeOSException
+        throws OSException
     {
         if (log.isDebugEnabled()) {
             log.debug("open({}, {}, {})", pathStr, flags, mode);
@@ -340,7 +344,7 @@ public class Filesystem
                 }
 
             } catch (IOException ioe) {
-                throw new NodeOSException(getErrorCode(ioe), ioe, pathStr);
+                throw new OSException(getErrorCode(ioe), ioe, pathStr);
             }
         }
 
@@ -364,13 +368,13 @@ public class Filesystem
             return fd;
 
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, pathStr);
+            throw new OSException(getErrorCode(ioe), ioe, pathStr);
         }
     }
 
     @SuppressWarnings("unused")
     public void close(int fd)
-        throws NodeOSException
+        throws OSException
     {
         FileHandle handle = ensureHandle(fd);
         try {
@@ -382,13 +386,13 @@ public class Filesystem
             }
             descriptors.remove(fd);
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe);
+            throw new OSException(getErrorCode(ioe), ioe);
         }
     }
 
     @SuppressWarnings("unused")
     public int readSync(int fd, ByteBuffer readBuf, int offset, int length, long pos)
-        throws NodeOSException
+        throws OSException
     {
         FileHandle handle = ensureRegularFileHandle(fd);
         long position = (pos < 0L ? handle.position : pos);
@@ -412,15 +416,16 @@ public class Filesystem
             return count;
 
         } catch (InterruptedException ie) {
-            throw new NodeOSException(Constants.EINTR);
+            throw new OSException(ErrorCodes.EINTR);
         } catch (ExecutionException ee) {
-            throw new NodeOSException(getErrorCode(ee.getCause()), ee.getCause());
+            throw new OSException(getErrorCode(ee.getCause()), ee.getCause());
         }
     }
 
     @SuppressWarnings("unused")
     public void readAsync(int fd, ByteBuffer readBuf, int offset, int length, long pos,
                           BiFunction<Object, Integer, Object> cb)
+        throws OSException
     {
         FileHandle handle = ensureRegularFileHandle(fd);
         long position = (pos < 0L ? handle.position : pos);
@@ -449,7 +454,7 @@ public class Filesystem
                              @Override
                              public void failed(Throwable t, Object attachment)
                              {
-                                 NodeOSException ne = new NodeOSException(getErrorCode(t));
+                                 OSException ne = new OSException(getErrorCode(t));
                                  runtime.enqueueTask(() -> {
                                      cb.apply(runtime.convertError(ne), null);
                                  });
@@ -460,7 +465,7 @@ public class Filesystem
 
     @SuppressWarnings("unused")
     public int writeSync(int fd, ByteBuffer writeBuf, int offset, int length, long pos)
-        throws NodeOSException
+        throws OSException
     {
         FileHandle handle = ensureRegularFileHandle(fd);
         long position = (pos < 0L ? handle.position : pos);
@@ -479,15 +484,16 @@ public class Filesystem
             return count;
 
         } catch (InterruptedException ie) {
-            throw new NodeOSException(Constants.EINTR);
+            throw new OSException(ErrorCodes.EINTR);
         } catch (ExecutionException ee) {
-            throw new NodeOSException(getErrorCode(ee.getCause()), ee.getCause());
+            throw new OSException(getErrorCode(ee.getCause()), ee.getCause());
         }
     }
 
     @SuppressWarnings("unused")
     public void writeAsync(int fd, ByteBuffer writeBuf, int offset, int length, long pos,
                           BiFunction<Object, Integer, Object> cb)
+        throws OSException
     {
         FileHandle handle = ensureRegularFileHandle(fd);
         long position = (pos < 0L ? handle.position : pos);
@@ -519,7 +525,7 @@ public class Filesystem
                              @Override
                              public void failed(Throwable t, Object attachment)
                              {
-                                 NodeOSException ne = new NodeOSException(getErrorCode(t));
+                                 OSException ne = new OSException(getErrorCode(t));
                                  runtime.enqueueTask(() -> {
                                      cb.apply(runtime.convertError(ne), null);
                                  });
@@ -530,7 +536,7 @@ public class Filesystem
 
     @SuppressWarnings("unused")
     public void rename(String oldPath, String newPath)
-        throws NodeOSException
+        throws OSException
     {
         Path oldFile = translatePath(oldPath);
         Path newFile = translatePath(newPath);
@@ -539,13 +545,13 @@ public class Filesystem
             Files.copy(oldFile, newFile, StandardCopyOption.REPLACE_EXISTING);
 
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, oldPath);
+            throw new OSException(getErrorCode(ioe), ioe, oldPath);
         }
     }
 
     @SuppressWarnings("unused")
     public void ftruncate(int fd, long len)
-        throws NodeOSException
+        throws OSException
     {
         if (log.isDebugEnabled()) {
             log.debug("ftruncate({}, {})", fd, len);
@@ -564,32 +570,32 @@ public class Filesystem
                 handle.file.truncate(len);
             }
         } catch (IOException e) {
-            throw new NodeOSException(getErrorCode(e), e);
+            throw new OSException(getErrorCode(e), e);
         }
     }
 
     @SuppressWarnings("unused")
     public void rmdir(String path)
-        throws NodeOSException
+        throws OSException
     {
         if (log.isDebugEnabled()) {
             log.debug("rmdir({})", path);
         }
         Path p = translatePath(path);
         if (!Files.isDirectory(p)) {
-            throw new NodeOSException(Constants.ENOTDIR, path);
+            throw new OSException(ErrorCodes.ENOTDIR, path);
         }
 
         try {
             Files.delete(p);
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, path);
+            throw new OSException(getErrorCode(ioe), ioe, path);
         }
     }
 
     @SuppressWarnings("unused")
     public void doSync(int fd, boolean metaData)
-        throws NodeOSException
+        throws OSException
     {
         FileHandle handle = ensureRegularFileHandle(fd);
         if (log.isDebugEnabled()) {
@@ -598,13 +604,13 @@ public class Filesystem
         try {
             handle.file.force(metaData);
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe);
+            throw new OSException(getErrorCode(ioe), ioe);
         }
     }
 
     @SuppressWarnings("unused")
     public void mkdir(String path, int mode)
-        throws NodeOSException
+        throws OSException
     {
         if (log.isDebugEnabled()) {
             log.debug("mkdir({})", path);
@@ -622,17 +628,17 @@ public class Filesystem
             }
 
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, path);
+            throw new OSException(getErrorCode(ioe), ioe, path);
         }
     }
 
     @SuppressWarnings("unused")
     public List<String> readdir(String dn)
-        throws NodeOSException
+        throws OSException
     {
         Path sp = translatePath(dn);
         if (!Files.isDirectory(sp)) {
-            throw new NodeOSException(Constants.ENOTDIR, sp.toString());
+            throw new OSException(ErrorCodes.ENOTDIR, sp.toString());
         }
         try {
             final ArrayList<String> paths = new ArrayList<String>();
@@ -652,13 +658,13 @@ public class Filesystem
             return paths;
 
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, dn);
+            throw new OSException(getErrorCode(ioe), ioe, dn);
         }
     }
 
     @SuppressWarnings("unused")
     public String readlink(String pathStr)
-        throws NodeOSException
+        throws OSException
     {
         Path path = translatePath(pathStr);
 
@@ -677,19 +683,19 @@ public class Filesystem
 
         } catch (IOException ioe) {
             log.debug("IOException: {}", ioe);
-            throw new NodeOSException(getErrorCode(ioe), ioe, pathStr);
+            throw new OSException(getErrorCode(ioe), ioe, pathStr);
         }
     }
 
     @SuppressWarnings("unused")
     public void symlink(String destPath, String srcPath)
-        throws NodeOSException
+        throws OSException
     {
         Path dest = translatePath(destPath);
         Path src = translatePath(srcPath);
 
         if (dest == null) {
-            throw new NodeOSException(Constants.EPERM, "Attempt to link file above filesystem root");
+            throw new OSException(ErrorCodes.EPERM, "Attempt to link file above filesystem root");
         }
 
         // "symlink" supports relative paths. But now that we have checked to make sure that we're
@@ -708,13 +714,13 @@ public class Filesystem
             Files.createSymbolicLink(dest, src);
 
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, destPath);
+            throw new OSException(getErrorCode(ioe), ioe, destPath);
         }
     }
 
     @SuppressWarnings("unused")
     public void link(String destPath, String srcPath)
-        throws NodeOSException
+        throws OSException
     {
         Path dest = translatePath(destPath);
         Path src = translatePath(srcPath);
@@ -727,13 +733,13 @@ public class Filesystem
             Files.createLink(dest, src);
 
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, destPath);
+            throw new OSException(getErrorCode(ioe), ioe, destPath);
         }
     }
 
     @SuppressWarnings("unused")
     public void unlink(String path)
-        throws NodeOSException
+        throws OSException
     {
         if (log.isDebugEnabled()) {
             log.debug("unlink({})", path);
@@ -745,14 +751,14 @@ public class Filesystem
 
         } catch (DirectoryNotEmptyException dne) {
             // Special case because unlinking a directory should be a different error.
-            throw new NodeOSException(Constants.EPERM, dne, path);
+            throw new OSException(ErrorCodes.EPERM, dne, path);
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, path);
+            throw new OSException(getErrorCode(ioe), ioe, path);
         }
     }
 
     private void doChmod(Path path, int mode, boolean noFollow)
-        throws NodeOSException
+        throws OSException
     {
         Set<PosixFilePermission> perms = modeToPerms(mode, false);
 
@@ -768,13 +774,13 @@ public class Filesystem
             }
 
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, path.toString());
+            throw new OSException(getErrorCode(ioe), ioe, path.toString());
         }
     }
 
     @SuppressWarnings("unused")
     public void chmod(String path, int mode)
-        throws NodeOSException
+        throws OSException
     {
         Path p = translatePath(path);
         if (Platform.get().isPosixFilesystem()) {
@@ -786,7 +792,7 @@ public class Filesystem
 
     @SuppressWarnings("unused")
     public void fchmod(int fd, int mode)
-        throws NodeOSException
+        throws OSException
     {
         FileHandle fh = ensureHandle(fd);
         if (Platform.get().isPosixFilesystem()) {
@@ -797,7 +803,7 @@ public class Filesystem
     }
 
     private void doChown(Path path, String uid, String gid, boolean noFollow)
-        throws NodeOSException
+        throws OSException
     {
         if (log.isDebugEnabled()) {
             log.debug("chown({}) to {}:{}", path, uid, gid);
@@ -827,13 +833,13 @@ public class Filesystem
             }
 
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, path.toString());
+            throw new OSException(getErrorCode(ioe), ioe, path.toString());
         }
     }
 
     @SuppressWarnings("unused")
     public void chown(String path, String uid, String gid)
-        throws NodeOSException
+        throws OSException
     {
         Path p = translatePath(path);
         doChown(p, uid, gid, false);
@@ -841,14 +847,14 @@ public class Filesystem
 
     @SuppressWarnings("unused")
     public void fchown(int fd, String uid, String gid)
-        throws NodeOSException
+        throws OSException
     {
         FileHandle fh = ensureHandle(fd);
         doChown(fh.path, uid, gid, fh.noFollow);
     }
 
     private void doUTimes(Path path, double atime, double mtime, boolean nofollow)
-        throws NodeOSException
+        throws OSException
     {
         try {
             BasicFileAttributeView attrView;
@@ -866,13 +872,13 @@ public class Filesystem
             attrView.setTimes(newMTime, newATime, attrs.creationTime());
 
         } catch (IOException ioe) {
-            throw new NodeOSException(getErrorCode(ioe), ioe, path.toString());
+            throw new OSException(getErrorCode(ioe), ioe, path.toString());
         }
     }
 
     @SuppressWarnings("unused")
     public void utimes(String path, double atime, double mtime)
-        throws NodeOSException
+        throws OSException
     {
         Path p = translatePath(path);
         doUTimes(p, atime, mtime, false);
@@ -880,7 +886,7 @@ public class Filesystem
 
     @SuppressWarnings("unused")
     public void futimes(int fd, double atime, double mtime)
-        throws NodeOSException
+        throws OSException
     {
         FileHandle fh = ensureHandle(fd);
         doUTimes(fh.path, atime, mtime, fh.noFollow);
@@ -966,20 +972,20 @@ public class Filesystem
     }
 
     private FileHandle ensureHandle(int fd)
-        throws NodeOSException
+        throws OSException
     {
         FileHandle handle = descriptors.get(fd);
         if (handle == null) {
             if (log.isTraceEnabled()) {
                 log.trace("File handle {} is not a regular file, fd");
             }
-            throw new NodeOSException(Constants.EBADF);
+            throw new OSException(ErrorCodes.EBADF);
         }
         return handle;
     }
 
     private FileHandle ensureRegularFileHandle(int fd)
-        throws NodeOSException
+        throws OSException
     {
         FileHandle h = ensureHandle(fd);
         if (h.file == null) {
@@ -987,12 +993,12 @@ public class Filesystem
                 if (log.isTraceEnabled()) {
                     log.trace("File handle {} is a directory and not a regular file", fd);
                 }
-                throw new NodeOSException(Constants.EISDIR);
+                throw new OSException(ErrorCodes.EISDIR);
             }
             if (log.isTraceEnabled()) {
                 log.trace("File handle {} is not a regular file", fd);
             }
-            throw new NodeOSException(Constants.EBADF);
+            throw new OSException(ErrorCodes.EBADF);
         }
         return h;
     }

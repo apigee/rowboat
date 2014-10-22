@@ -1,6 +1,5 @@
 var Constants = Java.type('io.apigee.rowboat.internal.Constants');
 var Filesystem = Java.type('io.apigee.rowboat.internal.Filesystem');
-var NodeOSException = Java.type('io.apigee.rowboat.internal.NodeOSException');
 
 var fs = exports;
 var binding = new Filesystem(process.getRuntime());

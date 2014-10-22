@@ -21,6 +21,8 @@
  */
 package io.apigee.rowboat.internal;
 
+import io.apigee.trireme.kernel.Charsets;
+import io.apigee.trireme.kernel.util.BufferUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +30,6 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 
 public class StringDecoder
@@ -67,7 +68,7 @@ public class StringDecoder
     private String doDecode(ByteBuffer buf, boolean lastChunk)
     {
         ByteBuffer inBuf = (buf == null ? EMPTY : buf);
-        ByteBuffer allIn = Utils.catBuffers(remaining, inBuf);
+        ByteBuffer allIn = BufferUtils.catBuffers(remaining, inBuf);
         CharBuffer out =
             CharBuffer.allocate((int) Math.ceil(inBuf.remaining() * decoder.averageCharsPerByte()));
 
@@ -79,14 +80,14 @@ public class StringDecoder
         do {
             result = decoder.decode(allIn, out, lastChunk);
             if (result.isOverflow()) {
-                out = Utils.doubleBuffer(out);
+                out = BufferUtils.doubleBuffer(out);
             }
         } while (result.isOverflow());
         if (lastChunk) {
             do {
                 result = decoder.flush(out);
                 if (result.isOverflow()) {
-                    out = Utils.doubleBuffer(out);
+                    out = BufferUtils.doubleBuffer(out);
                 }
             } while (result.isOverflow());
         }

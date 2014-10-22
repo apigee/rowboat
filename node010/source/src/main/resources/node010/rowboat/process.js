@@ -28,11 +28,12 @@
 var System =                 Java.type('java.lang.System');
 
 var Constants =              Java.type('io.apigee.rowboat.internal.Constants');
-var ConsoleHandle =          Java.type('io.apigee.rowboat.handles.ConsoleHandle');
-var JavaInputStreamHandle  = Java.type('io.apigee.rowboat.handles.JavaInputStreamHandle');
-var JavaOutputStreamHandle = Java.type('io.apigee.rowboat.handles.JavaOutputStreamHandle');
+var ConsoleHandle =          Java.type('io.apigee.trireme.kernel.handles.ConsoleHandle');
+var ErrorCodes =             Java.type('io.apigee.trireme.kernel.ErrorCodes');
+var JavaInputStreamHandle  = Java.type('io.apigee.trireme.kernel.handles.JavaInputStreamHandle');
+var JavaOutputStreamHandle = Java.type('io.apigee.trireme.kernel.handles.JavaOutputStreamHandle');
 var NodeExitException =      Java.type('io.apigee.rowboat.internal.NodeExitException');
-var NodeOSException =        Java.type('io.apigee.rowboat.internal.NodeOSException');
+var OSException =            Java.type('io.apigee.trireme.kernel.OSException');
 var Version =                Java.type('io.apigee.rowboat.internal.Version');
 
 var NANO = 100000000;
@@ -155,7 +156,7 @@ Process.prototype.getVersions = function() {
   return {
     rowboat: Version.ROWBOAT_VERSION,
     ssl: Version.SSL_VERSION,
-    node: getRuntime().getNodeVersion()
+    node: this._runtime.getNodeVersion()
   };
 };
 
@@ -180,7 +181,7 @@ Process.prototype.getStdoutHandle = function() {
     streamHandle = new ConsoleHandle(this._runtime);
     return createConsoleHandle(streamHandle);
   } else {
-    streamHandle = new JavaOutputStreamHandle(this._runtime.getStdout(), this._runtime);
+    streamHandle = new JavaOutputStreamHandle(this._runtime.getStdout());
     return createStreamHandle(streamHandle);
   }
 };
@@ -197,7 +198,7 @@ Process.prototype.getStdinHandle = function() {
 };
 
 Process.prototype.getStderrHandle = function() {
-  var streamHandle = new JavaOutputStreamHandle(this._runtime.getStderr(), this._runtime);
+  var streamHandle = new JavaOutputStreamHandle(this._runtime.getStderr());
   return createStreamHandle(streamHandle);
 };
 
@@ -353,9 +354,9 @@ Process.prototype.hrtime = function(time) {
  */
 function convertJavaException(ne, path) {
   var e = new Error(ne.getMessage());
-  if (ne instanceof NodeOSException) {
-    e.code = ne.getCode();
-    var errno = Constants.getErrno(ne.getCode());
+  if (ne instanceof OSException) {
+    e.code = ne.getCodeAsString();
+    var errno = ne.getCode();
     if (errno >= 0) {
       e.errno = errno;
     }
@@ -372,8 +373,8 @@ Process.prototype.convertJavaException = convertJavaException;
  * if any.
  */
 function getJavaErrno(ne) {
-  if (ne instanceof NodeOSException) {
-    return ne.getCode();
+  if (ne instanceof OSException) {
+    return ne.getStringCode();
   }
   return Constants.EIO;
 }
@@ -389,3 +390,14 @@ function checkJavaErrno(ne) {
   throw ne;
 }
 Process.prototype.checkJavaErrno = checkJavaErrno;
+
+/*
+ * Convert a Java error code to a string, or null if it's not an error
+ */
+function convertJavaErrno(errCode) {
+  if (errCode === 0) {
+    return null;
+  }
+  return ErrorCodes.get().toString(errCode);
+}
+Process.prototype.convertJavaErrno = convertJavaErrno;

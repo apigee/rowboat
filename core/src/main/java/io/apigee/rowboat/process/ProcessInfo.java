@@ -1,8 +1,8 @@
 package io.apigee.rowboat.process;
 
-import io.apigee.rowboat.handles.AbstractHandle;
-import io.apigee.rowboat.internal.Constants;
-import io.apigee.rowboat.internal.NodeOSException;
+import io.apigee.trireme.kernel.ErrorCodes;
+import io.apigee.trireme.kernel.OSException;
+import io.apigee.trireme.kernel.handles.AbstractHandle;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -49,6 +49,7 @@ public class ProcessInfo
     }
 
     public void setStdio(int i, String tn, int fd)
+        throws OSException
     {
         StdioType type;
         switch (tn) {
@@ -65,7 +66,7 @@ public class ProcessInfo
             type = StdioType.IGNORE;
             break;
         default:
-            throw new NodeOSException(Constants.EINVAL, "Invalid stdio type " + tn);
+            throw new OSException(ErrorCodes.EINVAL, "Invalid stdio type " + tn);
         }
 
         stdioTypes.put(i, type);

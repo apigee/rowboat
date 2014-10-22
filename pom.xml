@@ -1,14 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-    <dependencies>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.8.1</version>
-        </dependency>
-    </dependencies>
-
-    <parent>
+  <parent>
     <groupId>org.sonatype.oss</groupId>
     <artifactId>oss-parent</artifactId>
     <version>7</version>
@@ -17,7 +9,7 @@
   <groupId>io.apigee.rowboat</groupId>
   <artifactId>rowboat</artifactId>
   <name>rowboat</name>
-  <description>Trireme -- Embed Node.js programs inside the Java Virtual Machine</description>
+  <description>Rowboat -- Embed Node.js programs inside the Java Virtual Machine</description>
   <url>http://github.com/apigee/rowboat</url>
   <version>0.0.1-SNAPSHOT</version>
   
@@ -50,6 +42,11 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
+        <groupId>io.apigee.trireme</groupId>
+        <artifactId>trireme-kernel</artifactId>
+        <version>0.8.4-SNAPSHOT</version>
+      </dependency>
+      <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
         <version>1.7.2</version>
@@ -58,11 +55,6 @@
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
         <version>1.0.9</version>
-      </dependency>
-      <dependency>
-        <groupId>org.mozilla</groupId>
-        <artifactId>rhino</artifactId>
-        <version>1.7R4</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
@@ -100,15 +92,15 @@
         <version>2.4</version>
       </dependency>
       <dependency>
-          <groupId>org.bouncycastle</groupId>
-          <artifactId>bcprov-jdk15on</artifactId>
-          <version>1.49</version>
-        </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcpkix-jdk15on</artifactId>
-            <version>1.49</version>
-        </dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcprov-jdk15on</artifactId>
+        <version>1.50</version>
+      </dependency>
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcpkix-jdk15on</artifactId>
+        <version>1.50</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 

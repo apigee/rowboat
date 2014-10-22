@@ -1,11 +1,13 @@
 package io.apigee.rowboat.process;
 
-import io.apigee.rowboat.handles.AbstractHandle;
-import io.apigee.rowboat.handles.JavaInputStreamHandle;
-import io.apigee.rowboat.handles.JavaOutputStreamHandle;
-import io.apigee.rowboat.internal.Constants;
-import io.apigee.rowboat.internal.NodeOSException;
 import io.apigee.rowboat.internal.ScriptRunner;
+import io.apigee.trireme.kernel.ErrorCodes;
+import io.apigee.trireme.kernel.OSException;
+import io.apigee.trireme.kernel.handles.AbstractHandle;
+import io.apigee.trireme.kernel.handles.JavaInputStreamHandle;
+import io.apigee.trireme.kernel.handles.JavaOutputStreamHandle;
+import io.apigee.trireme.kernel.streams.BitBucketOutputStream;
+import io.apigee.trireme.kernel.streams.StreamPiper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,7 +55,7 @@ public class SpawnedOSProcess
      */
     private AbstractHandle createOutputStream(ProcessInfo.StdioType type, int fd,
                                               OutputStream out)
-        throws NodeOSException
+        throws OSException
     {
         AbstractHandle ret = null;
         switch (type) {
@@ -62,7 +64,7 @@ public class SpawnedOSProcess
             if (log.isDebugEnabled()) {
                 log.debug("Setting up output stream {}", out);
             }
-            ret = new JavaOutputStreamHandle(out, runtime);
+            ret = new JavaOutputStreamHandle(out);
             break;
 
         case IGNORE:
@@ -80,14 +82,14 @@ public class SpawnedOSProcess
         case FD:
             // Assuming fd is zero, read from stdin and set that up.
             if (fd != 0) {
-                throw new NodeOSException(Constants.EINVAL, "Only FDs 0, 1, and 2 supported");
+                throw new OSException(ErrorCodes.EINVAL, "Only FDs 0, 1, and 2 supported");
             }
             StreamPiper piper = new StreamPiper(runtime.getStdin(), out, false);
             piper.start(runtime.getUnboundedPool());
             break;
 
         default:
-            throw new NodeOSException(Constants.EINVAL, "Unsupported stdio type " + type);
+            throw new OSException(ErrorCodes.EINVAL, "Unsupported stdio type " + type);
         }
         return ret;
     }
@@ -98,7 +100,7 @@ public class SpawnedOSProcess
      */
     private AbstractHandle createInputStream(ProcessInfo.StdioType type, int fd,
                                              InputStream in)
-        throws NodeOSException
+        throws OSException
     {
         AbstractHandle ret = null;
         switch (type) {
@@ -133,14 +135,14 @@ public class SpawnedOSProcess
             }
 
         default:
-            throw new NodeOSException(Constants.EINVAL, "Unsupported stdio type " + type);
+            throw new OSException(ErrorCodes.EINVAL, "Unsupported stdio type " + type);
         }
         return ret;
     }
 
     @SuppressWarnings("unused")
     public void spawn(ProcessInfo info, IntConsumer onExit)
-        throws NodeOSException
+        throws OSException
     {
         if (log.isDebugEnabled()) {
             log.debug("About to exec " + info.getArgs());
@@ -149,9 +151,9 @@ public class SpawnedOSProcess
         if (info.getCwd() != null) {
             File cwdFile = runtime.translatePath(info.getCwd());
             if (!cwdFile.exists()) {
-                throw new NodeOSException(Constants.ENOENT);
+                throw new OSException(ErrorCodes.ENOENT);
             } else if (!cwdFile.isDirectory()) {
-                throw new NodeOSException(Constants.ENOTDIR);
+                throw new OSException(ErrorCodes.ENOTDIR);
             }
 
             builder.directory(cwdFile);
@@ -170,7 +172,7 @@ public class SpawnedOSProcess
             if (log.isDebugEnabled()) {
                 log.debug("Error in execution: {}", ioe);
             }
-            throw new NodeOSException(Constants.ENOENT);
+            throw new OSException(ErrorCodes.ENOENT);
         }
         if (log.isDebugEnabled()) {
             log.debug("Starting {}", proc);

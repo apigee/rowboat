@@ -5,7 +5,7 @@
 
 var BufferUtils = Java.type('io.apigee.rowboat.node010.BufferUtils');
 var ByteBuffer = Java.type('java.nio.ByteBuffer');
-var Charsets = Java.type('io.apigee.rowboat.internal.Charsets');
+var Charsets = Java.type('io.apigee.trireme.kernel.Charsets');
 
 var bufUtils = BufferUtils.get();
 

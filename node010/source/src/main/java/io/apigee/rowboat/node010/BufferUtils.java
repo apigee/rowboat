@@ -1,8 +1,8 @@
 package io.apigee.rowboat.node010;
 
-import io.apigee.rowboat.internal.Charsets;
-import io.apigee.rowboat.internal.Constants;
-import io.apigee.rowboat.internal.NodeOSException;
+import io.apigee.trireme.kernel.Charsets;
+import io.apigee.trireme.kernel.ErrorCodes;
+import io.apigee.trireme.kernel.OSException;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -73,6 +73,7 @@ public class BufferUtils
 
     @SuppressWarnings("unused")
     public void fill(ByteBuffer buf, Object val, int start, int end)
+        throws OSException
     {
         byte toFill;
         if (val instanceof Number) {
@@ -82,7 +83,7 @@ public class BufferUtils
         } else if (val instanceof CharSequence) {
             toFill = (byte)(((CharSequence)val).toString().charAt(0));
         } else {
-            throw new NodeOSException(Constants.EINVAL);
+            throw new OSException(ErrorCodes.EINVAL);
         }
 
         for (int i = start; i < end; i++) {

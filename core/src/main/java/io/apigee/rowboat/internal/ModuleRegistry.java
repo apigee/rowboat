@@ -25,6 +25,7 @@ import io.apigee.rowboat.InternalNodeModule;
 import io.apigee.rowboat.NodeException;
 import io.apigee.rowboat.NodeModule;
 import io.apigee.rowboat.spi.NodeImplementation;
+import io.apigee.trireme.kernel.Charsets;
 
 import javax.script.Compilable;
 import javax.script.CompiledScript;

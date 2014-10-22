@@ -1,6 +1,5 @@
 package io.apigee.rowboat.test;
 
-import io.apigee.rowboat.NetworkPolicy;
 import io.apigee.rowboat.NodeEnvironment;
 import io.apigee.rowboat.NodeException;
 import io.apigee.rowboat.NodeScript;
@@ -9,6 +8,7 @@ import io.apigee.rowboat.ScriptStatus;
 import io.apigee.rowboat.ScriptStatusListener;
 import io.apigee.rowboat.SubprocessPolicy;
 import io.apigee.rowboat.internal.Utils;
+import io.apigee.trireme.kernel.net.NetworkPolicy;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,7 +19,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;

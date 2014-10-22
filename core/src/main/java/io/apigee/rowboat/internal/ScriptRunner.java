@@ -31,6 +31,9 @@ import io.apigee.rowboat.ScriptFuture;
 import io.apigee.rowboat.ScriptStatus;
 import io.apigee.rowboat.ScriptTask;
 import io.apigee.rowboat.binding.DefaultScriptObject;
+import io.apigee.trireme.kernel.PathTranslator;
+import io.apigee.trireme.kernel.net.NetworkPolicy;
+import io.apigee.trireme.kernel.net.SelectorHandler;
 import jdk.nashorn.api.scripting.JSObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,7 +88,7 @@ public class ScriptRunner
     private final  String[]        args;
     private        ScriptFuture    future;
     private final  CountDownLatch  initialized = new CountDownLatch(1);
-    private final   Sandbox        sandbox;
+    private final  Sandbox         sandbox;
     private final  PathTranslator  pathTranslator;
     private final  ExecutorService asyncPool;
     private final IdentityHashMap<Closeable, Closeable> openHandles =
@@ -195,6 +198,11 @@ public class ScriptRunner
     @Override
     public Sandbox getSandbox() {
         return sandbox;
+    }
+
+    @Override
+    public NetworkPolicy getNetworkPolicy() {
+        return (sandbox == null ? null : sandbox.getNetworkPolicy());
     }
 
     @Override

@@ -5,12 +5,17 @@ import io.apigee.rowboat.NodeScript;
 import io.apigee.rowboat.Sandbox;
 import io.apigee.rowboat.ScriptFuture;
 import io.apigee.rowboat.ScriptStatus;
-import io.apigee.rowboat.handles.AbstractHandle;
-import io.apigee.rowboat.handles.JavaInputStreamHandle;
-import io.apigee.rowboat.handles.JavaOutputStreamHandle;
 import io.apigee.rowboat.internal.Constants;
-import io.apigee.rowboat.internal.NodeOSException;
 import io.apigee.rowboat.internal.ScriptRunner;
+import io.apigee.trireme.kernel.ErrorCodes;
+import io.apigee.trireme.kernel.OSException;
+import io.apigee.trireme.kernel.handles.AbstractHandle;
+import io.apigee.trireme.kernel.handles.JavaInputStreamHandle;
+import io.apigee.trireme.kernel.handles.JavaOutputStreamHandle;
+import io.apigee.trireme.kernel.streams.BitBucketInputStream;
+import io.apigee.trireme.kernel.streams.BitBucketOutputStream;
+import io.apigee.trireme.kernel.streams.NoCloseInputStream;
+import io.apigee.trireme.kernel.streams.NoCloseOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +66,7 @@ public class SpawnedRowboatProcess
      * Used for standard input.
      */
     private AbstractHandle createOutputStream(ProcessInfo.StdioType type, int fd, Sandbox sandbox)
-        throws IOException
+        throws IOException, OSException
     {
         AbstractHandle handle = null;
         switch (type) {
@@ -75,13 +80,13 @@ public class SpawnedRowboatProcess
             PipedOutputStream pipeOut = new PipedOutputStream(pipeIn);
 
             sandbox.setStdin(pipeIn);
-            handle = new JavaOutputStreamHandle(pipeOut, runtime);
+            handle = new JavaOutputStreamHandle(pipeOut);
             break;
 
         case FD:
             // Child will read directly from the stdin for this process.
             if (fd != 0) {
-                throw new NodeOSException(Constants.EINVAL, "Invalid fd " + fd + " for process input");
+                throw new OSException(ErrorCodes.EINVAL, "Invalid fd " + fd + " for process input");
             }
             log.debug("Using standard input for script input");
             sandbox.setStdin(new NoCloseInputStream(runtime.getStdin()));
@@ -184,7 +189,7 @@ public class SpawnedRowboatProcess
 
     @SuppressWarnings("unused")
     public void spawn(ProcessInfo info, IntConsumer onExit)
-        throws NodeOSException
+        throws OSException
     {
         if (log.isDebugEnabled()) {
             log.debug("About to launch another ScriptRunner thread");
@@ -203,7 +208,7 @@ public class SpawnedRowboatProcess
             }
         }
         if (scriptPath == null) {
-            throw new NodeOSException(Constants.EINVAL, "No script path to spawn");
+            throw new OSException(ErrorCodes.EINVAL, "No script path to spawn");
         }
 
         ArrayList<String> args = new ArrayList<String>(execArgs.length - i + 1);
@@ -231,7 +236,7 @@ public class SpawnedRowboatProcess
                 info.setStdioHandle(2, h);
             }
         } catch (IOException ioe) {
-            throw new NodeOSException(Constants.EIO, ioe);
+            throw new OSException(ErrorCodes.EIO, ioe);
         }
 
         /* TODO IPC!
@@ -254,9 +259,9 @@ public class SpawnedRowboatProcess
         if (info.getCwd() != null) {
             cwdFile = runtime.translatePath(info.getCwd());
             if (!cwdFile.exists()) {
-                throw new NodeOSException(Constants.ENOENT);
+                throw new OSException(ErrorCodes.ENOENT);
             } else if (!cwdFile.isDirectory()) {
-                throw new NodeOSException(Constants.ENOTDIR);
+                throw new OSException(ErrorCodes.ENOTDIR);
             }
         }
 
@@ -291,7 +296,7 @@ public class SpawnedRowboatProcess
             if (log.isDebugEnabled()) {
                 log.debug("Error starting internal script: {}", ne);
             }
-            throw new NodeOSException(Constants.EIO, ne);
+            throw new OSException(ErrorCodes.EIO, ne);
         }
 
         future.setListener((NodeScript script, ScriptStatus status) ->

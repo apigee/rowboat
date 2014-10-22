@@ -23,11 +23,8 @@
 package io.apigee.rowboat.node010;
 
 import io.apigee.rowboat.NodeModule;
-import io.apigee.rowboat.node010.modules.InternalBufferModule;
 import io.apigee.rowboat.spi.NodeImplementation;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 
@@ -105,6 +102,7 @@ public class Node010Implementation
             { "console_wrap", R + "console_wrap.js" },
             { "evals", R + "evals.js" },
             { "fs", R + "fs.js" },
+            { "http_parser", R + "http_parser.js" },
             { "process", R + "process.js" },
             { "process_wrap", R + "process_wrap.js" },
             { "referenceable", R + "referenceable.js" },
