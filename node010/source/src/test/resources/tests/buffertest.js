@@ -1,5 +1,6 @@
 var assert = require('assert');
 var SlowBuffer = require('buffer').SlowBuffer;
+var ByteBuffer = Java.type('java.nio.ByteBuffer');
 
 var buf1 = Buffer(1024);
 assert.equal(buf1.length, 1024);
@@ -89,6 +90,18 @@ assert.equal(slowNioBuffer.remaining(), 10);
 var newJavaBuffer = Buffer.fromJava(nioBuffer);
 console.log('Converted java buffer is %s', newJavaBuffer.toString('ascii'));
 assert.equal(newJavaBuffer.toString('ascii'), 'Hello, World!');
+
+// Should be able to re-position Java buffer without affecting actual buffer contents
+var dupeTestBuffer = new Buffer('Hello, World!', 'ascii');
+var jDupe = dupeTestBuffer.toJava();
+jDupe.position(jDupe.position() + 7);
+jDupe.limit(jDupe.limit() - 1);
+assert.equal(dupeTestBuffer.toString('ascii'), 'Hello, World!');
+
+// Should be able to slice a ByteBuffer and then create a Node buffer from it at position 0
+var slicedBuffer = Buffer.fromJava(jDupe);
+assert.equal(slicedBuffer.toString('ascii'), 'World');
+
 
 
 

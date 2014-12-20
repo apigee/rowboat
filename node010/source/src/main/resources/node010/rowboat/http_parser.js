@@ -138,6 +138,7 @@ function callOnHeadersComplete(self, result) {
 
     return self.onHeadersComplete(info);
   }
+  return false;
 }
 
 function callOnHeaders(self, result) {

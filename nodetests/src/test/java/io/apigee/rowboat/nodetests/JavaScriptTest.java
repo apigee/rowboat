@@ -175,10 +175,12 @@ public class JavaScriptTest
                     if (!isExcluded(f.getName(), DEFAULT_ADAPTER, excluded)) {
                         ret.add(new Object[] { f, DEFAULT_ADAPTER, nodeVersion });
                     }
+                    /* Uncomment when we want to start using the netty adapter
                     if (isHttp.matcher(f.getName()).matches() &&
                         !isExcluded(f.getName(), NETTY_ADAPTER, excluded)) {
                         ret.add(new Object[] { f, NETTY_ADAPTER, nodeVersion });
                     }
+                    */
                 }
             }
         }

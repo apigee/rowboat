@@ -24,6 +24,7 @@ var Stream = process.binding('stream_wrap').Stream;
 var util = require('util');
 
 var NIOSocketHandle = Java.type('io.apigee.trireme.kernel.handles.NIOSocketHandle');
+var Inet6Address = Java.type('java.net.Inet6Address');
 
 var debug;
 if (process.env.NODE_DEBUG && /net/.test(process.env.NODE_DEBUG)) {
@@ -158,10 +159,11 @@ function onShutdownComplete(self, req, errCode) {
 }
 
 function convertAddress(m) {
+  // TODO getHostString, perhaps with instanceof?
   return {
-    port: m.port,
-    address: m.address,
-    family: m.family
+    port: m.getPort(),
+    address: m.getHostString(),
+    family: (m.getAddress() instanceof Inet6Address ? 'IPv6' : 'IPv4')
   };
 }
 

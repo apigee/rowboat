@@ -112,6 +112,7 @@ public class ScriptRunner
     //private Buffer.BufferModuleImpl buffer;
     private String              workingDirectory;
     private Object              parentProcess;
+    private Object              domain;
 
     private boolean             needTickCallback;
     private boolean             needImmediateCallback;
@@ -433,16 +434,19 @@ public class ScriptRunner
     /**
      * This method uses a concurrent queue so it may be called from any thread.
      */
-    /*
-    @Override
-    public void enqueueTask(ScriptTask task,  domain)
+    public void enqueueTask(ScriptTask task, Object domain)
     {
-        Task t = new Task(task, scope);
+        Task t = new Task(task);
         t.setDomain(domain);
         tickFunctions.offer(t);
         selector.wakeup();
     }
-    */
+
+    @Override
+    public void executeScriptTask(Runnable task, Object domain)
+    {
+        enqueueTask(() -> task.run(), domain);
+    }
 
     /**
      * This method puts the task directly on the timer queue, which is unsynchronized. If it is ever used
@@ -504,6 +508,17 @@ public class ScriptRunner
     public Object getErrno()
     {
         return context.getAttribute("errno");
+    }
+
+    @Override
+    public Object getDomain()
+    {
+        return domain;
+    }
+
+    public void setDomain(Object domain)
+    {
+        this.domain = domain;
     }
 
     @Override
@@ -701,6 +716,9 @@ public class ScriptRunner
                     }
                     selector.select(pollTimeout);
                 } else {
+                    if (log.isDebugEnabled()) {
+                        log.debug("mainLoop: not sleeping");
+                    }
                     selector.selectNow();
                 }
 

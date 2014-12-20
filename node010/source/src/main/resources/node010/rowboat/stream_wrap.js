@@ -46,14 +46,16 @@ function Stream(handle) {
 
   // The handle is a Java object -- make it non-enumerable or debugging will break
   Object.defineProperty(this, 'handle', {
-    value: handle
+    value: handle,
+    enumerable: false
   });
 
   this.bytes = 0;
   Referenceable.call(this);
 
   Object.defineProperty(this, "writeQueueSize", {
-    get: this.getWriteQueueSize
+    get: this.getWriteQueueSize,
+    enumerable: true
   });
 }
 module.exports.Stream = Stream;

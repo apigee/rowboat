@@ -93,6 +93,7 @@ function expectBody(expected) {
   var parser = newParser(REQUEST);
 
   parser.onHeadersComplete = mustCall(function(info) {
+    console.log('onHeadersComplete');
     assert.equal(info.method, 'GET');
     assert.equal(info.url || parser.url, '/hello');
     assert.equal(info.versionMajor, 1);
@@ -107,10 +108,15 @@ function expectBody(expected) {
   //
 
   parser.onHeadersComplete = function(info) {
+    console.log('onHeadersComplete second time');
     throw new Error('hello world');
   };
 
   parser.reinitialize(HTTPParser.REQUEST);
+
+  /*request = Buffer(
+      'GET /hello HTTP/1.1' + CRLF +
+      CRLF); */
 
   assert.throws(function() {
     parser.execute(request, 0, request.length);

@@ -113,6 +113,11 @@ function Process(runtime) {
     set: this.setTickFromSpinner
   });
 
+  Object.defineProperty(this, "domain", {
+    get: this.getDomain,
+    set: this.setDomain
+  });
+
   // TODO config
   // TODO features
 }
@@ -200,6 +205,14 @@ Process.prototype.getStdinHandle = function() {
 Process.prototype.getStderrHandle = function() {
   var streamHandle = new JavaOutputStreamHandle(this._runtime.getStderr());
   return createStreamHandle(streamHandle);
+};
+
+Process.prototype.getDomain = function() {
+  return this._runtime.getDomain();
+};
+
+Process.prototype.setDomain = function(domain) {
+  this._runtime.setDomain(domain);
 };
 
 Process.prototype.setSubmitTick = function(submit) {

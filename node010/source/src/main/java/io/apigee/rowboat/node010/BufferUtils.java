@@ -45,7 +45,10 @@ public class BufferUtils
     {
         // Use CharSequence here to avoid an extra copy of the string that we don't need
         Charset cs = Charsets.get().resolveCharset(encoding);
-        assert(cs != null);
+        //assert(cs != null);
+        if (cs == null) {
+            throw new AssertionError("Encoding not found: " + encoding);
+        }
         CharsetEncoder encoder = cs.newEncoder();
         encoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
         if (encoder.maxBytesPerChar() == 1.0f) {

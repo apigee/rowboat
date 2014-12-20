@@ -19,6 +19,10 @@ function SlowBuffer(lengthOrBuffer) {
     buf = ByteBuffer.allocate(lengthOrBuffer)
   } else {
     buf = lengthOrBuffer;
+    if (buf.position() > 0) {
+      // "setIndexedProperties..." only works if the buffer's position is zero.
+      buf = buf.slice();
+    }
   }
 
   Object.defineProperty(this, '_buf', {
@@ -27,7 +31,7 @@ function SlowBuffer(lengthOrBuffer) {
     enumerable: false
   });
 
-  // This is a mostly-undocumented Nashorn feature that lets the array indexing of this object go to the index
+  // This is a mostly-undocumented Nashorn feature that lets the array indexing of this object go to the buffer
   Object.setIndexedPropertiesToExternalArrayData(this, buf);
   this.length = buf.limit();
 }
@@ -51,7 +55,8 @@ SlowBuffer.makeFastBuffer = function(parent, buf, offset, length) {
   Object.setIndexedPropertiesToExternalArrayData(buf, bb);
 
   buf.toJava = function() {
-    return bb;
+    // Make sure that changes to position, limit, etc don't affect us.
+    return bb.duplicate();
   };
 };
 

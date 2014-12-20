@@ -80,6 +80,7 @@ public class Node010Implementation
             { "querystring", N + "querystring.js" },
             { "readline", N + "readline.js" },
             { "stream", N + "stream.js" },
+            { "string_decoder", N + "string_decoder.js" },
             { "sys", N + "sys.js" },
             { "timers", N + "timers.js" },
             { "url", N + "url.js" },
@@ -88,7 +89,6 @@ public class Node010Implementation
             // Rowboat
             { "buffer", R + "buffer.js" },
             { "child_process", R + "child_process.js" },
-            { "string_decoder", R + "string_decoder.js" },
             { "vm", R + "vm.js" }
         };
     }
