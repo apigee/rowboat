@@ -59,7 +59,11 @@ import java.util.PriorityQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -471,6 +475,31 @@ public class ScriptRunner
         }
         timerQueue.add(t);
         selector.wakeup();
+        return t;
+    }
+
+    public Future<Boolean> createTimedTask(Runnable r, long delay, TimeUnit unit, boolean repeating, Object domain)
+    {
+        final RunnableTask t = new RunnableTask(r);
+        t.setDomain(domain);
+        t.setTimeout(System.currentTimeMillis() + unit.toMillis(delay));
+        t.setRepeating(repeating);
+        if (repeating) {
+            t.setInterval(delay);
+        }
+
+        enqueueTask(new ScriptTask()
+        {
+            @Override
+            public void execute()
+            {
+                if (!t.isCancelled()) {
+                    t.setId(timerSequence++);
+                    timerQueue.add(t);
+                    selector.wakeup();
+                }
+            }
+        });
         return t;
     }
 
@@ -1175,6 +1204,49 @@ public class ScriptRunner
                 exit.call(cx, exit, domain, new Object[0]);
             }
             */
+        }
+    }
+
+    private final class RunnableTask
+        extends Activity
+        implements Future<Boolean>
+    {
+        private Runnable task;
+
+        RunnableTask(Runnable task)
+        {
+            this.task = task;
+        }
+
+        @Override
+        protected void execute()
+        {
+            task.run();
+        }
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning)
+        {
+            setCancelled(true);
+            return true;
+        }
+
+        @Override
+        public boolean isDone()
+        {
+            return false;
+        }
+
+        @Override
+        public Boolean get()
+        {
+            return Boolean.TRUE;
+        }
+
+        @Override
+        public Boolean get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
+        {
+            return Boolean.TRUE;
         }
     }
 }
