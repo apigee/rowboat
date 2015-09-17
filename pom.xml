@@ -35,6 +35,7 @@
   <modules>
     <module>core</module>
     <module>node010</module>
+    <module>node40</module>
     <module>nodetests</module>
     <module>shell</module>
   </modules>
